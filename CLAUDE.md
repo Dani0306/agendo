@@ -95,13 +95,13 @@ Phases are gated by their exit checks, not by the calendar: a phase starts only 
 
 **Phase 1: Foundation.** Exit: a message sent from WhatsApp is stored in Postgres and gets a reply.
 
-- [ ] T03 📝 Migration: schema `agendo`, tables, RLS, grants, schema exposed
-- [ ] T04 `lib/db` + cross-tenant RLS test + grant smoke test
-- [ ] T05 `lib/cost` dated pricing table and `lib/models.ts`
-- [ ] T06 Model-call wrapper writing `model_calls`
-- [ ] T07 `lib/pii`: keyed phone hashing and redaction
-- [ ] T08 📝 ✋ Twilio sandbox + webhook (signature, dedupe, tenant lookup, ordering)
-- [ ] T09 Spanish system prompt + consent line
+- [ ] T03 📝 Migration: schema `agendo`, tables, RLS, grants, schema exposed (written and tested on a throwaway Postgres; not applied to the lab project yet)
+- [ ] T04 `lib/db` + cross-tenant RLS test + grant smoke test (built; the live `db:smoke` waits on T03)
+- [x] T05 `lib/cost` dated pricing table and `lib/models.ts`
+- [x] T06 Model-call wrapper writing `model_calls`
+- [x] T07 `lib/pii`: keyed phone hashing and redaction
+- [ ] T08 📝 ✋ Twilio sandbox + webhook (signature, dedupe, tenant lookup, ordering) (built and unit-tested; the live test is the owner's)
+- [ ] T09 Spanish system prompt + explicit consent before the first model call (built; the exit check is the owner's)
 
 **Phase 2: Booking core.** Exit: a customer can book, reschedule and cancel in both channels, and the database rejects a conflicting slot.
 
@@ -290,3 +290,4 @@ Keep this current. Append one line per working session: date, what shipped, the 
 
 - **2026-11-07** — Phase 0, context files written, nothing built. Next.js 16.4.5 scaffolded at the repo root (TypeScript, Tailwind, ESLint, App Router, `src/`); `AGENTS.md` and `CLAUDE.md` written from the project brief, using CiteDesk's files as the template. $0 spent. Next: T01 (business type and synthetic tenant), then T02 (verify WhatsApp rules, model IDs and prices).
 - **2026-11-08** — Phase 0 in progress. T01: owner chose home healthcare and outpatient clinics over the recommended barbershop, so health-sector rules were added (explicit consent first, data minimisation, no clinical advice, neutral reminders). T02: model IDs, prices and platform limits read from vendor pages and recorded. Haiku 5.5 is $0.10/$0.50 per 1M and caches from 512 tokens; the Sandbox expires after 3 days and offers no custom templates; buttons need templates; Twilio's webhook timeout is 15 s. T01 closed with the synthetic tenant Fisio Aurora (demo), an outpatient physio clinic; home visits parked. No code; $0 spent. Next: owner reads Meta policy section 3 to close T02, then T03.
+- **2026-11-08 (Phase 1, prompt 001)** — T03–T09 built on four stacked local branches. Thirteen `agendo` tables with composite tenant foreign keys, member-only read policies and a column grant hiding phone data; the migration and isolation script pass on PGlite, and the script caught a deliberately broken policy. Dated price table, `recordCall`, keyed phone hash, AES-256-GCM phone storage, signed webhook, consent gate (nothing stored before consent but the literal answer), and a per-conversation lease. 103 tests; forged and unsigned POSTs get 403 on the built route. No model calls; $0 spent. Next: owner applies the migration, joins the Sandbox and runs the exit check.

@@ -201,4 +201,26 @@ An expired lease can be taken over after a crash. Rejected: `pg_advisory_lock`, 
 
 ## Results
 
-Filled in after the work.
+Code complete on 8 Nov 2026. The live steps are still open, so the acceptance criteria stay unticked.
+
+**Measured**
+- 103 Vitest tests, no network. Typecheck, lint and build pass.
+- The migration and `rls_isolation.sql` pass on PGlite (Postgres 18.6, with stubbed `auth.uid()` and roles). Zero foreign keys lack a covering index. The script left no rows behind and failed when a policy was deliberately broken. The lab project hasn't run it yet.
+- On the built route, unsigned and forged POSTs got 403, and a correctly signed malformed one got 400.
+- Model calls: none, $0.
+
+**Not verified yet**
+- `conversationStore` against real PostgREST, including the lease filter. Unit tests use an in-memory store.
+- Whether Twilio accepts the empty `<Response>`, and Basic auth with the auth token (the docs show an API key).
+
+**Changes from the plan**
+- The consent state machine shipped with T08, because the webhook can't decide what to store without it.
+- `@types/node` moved from `^20` to exact `24.19.2`, because Vitest 5.1 requires 22 or later. Node here is 24.
+- The Vitest config is `vitest.config.mts`, to avoid a loader warning.
+- Testing found a redaction bug: numbers with a bracketed area code leaked. Fixed.
+
+**Behaviour to review**
+- `phone_encrypted` is stored at first contact, before consent, because the consent request itself has to be sent to that number. A customer who never answers keeps that row until the retention job (T25).
+- `display_name` isn't collected, since nothing needs it yet.
+- A customer who declined gets no further replies unless they write `ACEPTO`.
+- Withdrawing consent after granting it isn't handled. `NO` from a granted customer is treated as a normal message until T25.

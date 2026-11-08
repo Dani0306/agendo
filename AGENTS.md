@@ -179,7 +179,7 @@ RLS on every tenant-scoped table. Schema changes are new files in `supabase/migr
 1. **Webhook.** Verify the Twilio signature before parsing anything; reject unsigned requests with 403. Parse with Zod.
 2. **Dedupe.** Insert the inbound message keyed by the provider's message id; a duplicate (provider retry) is acknowledged and dropped.
 3. **Tenant.** Found from the receiving number. Unknown number: drop and log, never reply.
-4. **Consent.** On a customer's first contact, the reply includes the consent line and a link to the privacy policy (section 10). Record `consent_at`.
+4. **Consent.** A first-time customer gets the consent request with a link to the privacy policy, and nothing else happens until they answer `ACEPTO`. Until then only the literal answer is stored, never their text, and no model is called (`src/lib/agent/consent.ts`). Record `consent_at` and `consent_version`.
 5. **Rate limit** per hashed phone number (Upstash). Over the limit: a short static reply, no model call.
 6. **Budget.** Reserve the estimated cost from `tenant_usage`. Over budget: the button menu, no model call.
 7. **Cache.** An exact match on a normalised FAQ question for this tenant returns the cached reply. Booking intents are never cached: their answer depends on live availability.
@@ -245,6 +245,7 @@ None of these is measured in this repo yet. Items marked VERIFY come from the br
 - **Providers retry webhooks.** Without the unique provider message id, a retry books twice or replies twice.
 - **The service-role key bypasses RLS.** RLS protects against the `anon` key and the dashboard, not against server code using the secret key. Server code must still scope every query by tenant. Decide in the T03 prompt whether the dashboard reads with the owner's session (RLS enforced) and how tests prove one tenant can't read another's rows.
 - **Shared lab project.** Agendo shares the Supabase project with PaperTrail. `supabase-js` reaches `agendo` only if the schema is exposed in the API settings and granted; check with a test whether a missing grant shows up as an error or as an empty result (VERIFY). Check the Supabase MCP points at the lab project before applying anything.
+- **`customers` has a column grant.** `authenticated` can't read the phone columns, so a dashboard query must name its columns; `select *` is refused.
 - **Exclusion constraints need `btree_gist`** for the `resource_id with =` part, and `[)` range bounds, or back-to-back bookings conflict.
 - **Colombia has no daylight saving time**, so DST bugs won't show up with `America/Bogota`. Test the timezone code with a DST zone too (for example `America/New_York` across a change date).
 - **Phone hashes must be keyed.** Phone numbers are a small space, so a plain SHA-256 can be reversed by trying them all. Use an HMAC with a secret pepper from `.env.local`.
@@ -293,7 +294,7 @@ Work the tasks in order; a task needs the ones before it. A phase starts only wh
 - **T06** Model-call wrapper writing `model_calls` (JSONL from scripts). Tokens from the SDK response.
 - **T07** 🎓 `lib/pii`: keyed phone hashing and redaction, with tests. Rejected alternative: plain SHA-256.
 - **T08** 📝 ✋ Twilio sandbox and `api/whatsapp` webhook: signature check, dedupe, tenant lookup, per-conversation ordering, a stored message and a plain reply. The owner joins the sandbox with their own phone.
-- **T09** Spanish system prompt (static first, tenant block after), consent line on first contact. **Exit:** a message sent from WhatsApp is stored in Postgres and gets a reply.
+- **T09** Spanish system prompt (static first, tenant block after), explicit consent before the first model call. **Exit:** a message sent from WhatsApp is stored in Postgres and gets a reply.
 
 ### Phase 2: Booking core
 - **T10** 🎓 Exclusion constraint on `bookings` with `btree_gist`, plus a test that two overlapping inserts can't both succeed. Rejected alternative: check-then-insert in code.
