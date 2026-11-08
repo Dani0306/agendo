@@ -31,7 +31,7 @@ Too big for one session. It splits into four slices, each one session and one PR
 - [Twilio webhook request](https://www.twilio.com/docs/messaging/guides/webhook-request) — `MessageSid`, `From`, `To`, `Body`, `ProfileName`, `WaId`. **VERIFY by test:** the page doesn't say what to return when not replying via TwiML; the plan is an empty `<Response/>`.
 - [Twilio Message resource](https://www.twilio.com/docs/messaging/api/message-resource) — `POST /2010-04-01/Accounts/{sid}/Messages.json`, form-encoded, Basic auth, `whatsapp:+…` addresses.
 - `node_modules/next/dist/docs/.../after.md` — `after()` runs post-response in route handlers, within `maxDuration`.
-- [Anthropic pricing](https://platform.claude.com/docs/en/about-claude/pricing) and prompt caching — see `CLAUDE.md` → Cost model.
+- [OpenAI pricing](https://developers.openai.com/api/docs/pricing) and prompt caching — see `CLAUDE.md` → Cost model. (Originally Anthropic; switched to OpenAI only on 8 Nov 2026.)
 - Still to read after install: `node_modules/ai/docs` for usage fields and test helpers (T06).
 
 ## Code inspected
@@ -107,7 +107,7 @@ An expired lease can be taken over after a crash. Rejected: `pg_advisory_lock`, 
 
 **Slice 4:** `src/lib/agent/consent.ts` · `src/lib/agent/prompt.ts`, with tests · `AGENTS.md` and `CLAUDE.md` (ticks, log, consent wording).
 
-**New dependencies, all exact-pinned, please confirm:** `@supabase/supabase-js` 2.119.0 · `zod` 4.6.7 · `server-only` 0.0.1 · `ai` 7.0.165 · `@ai-sdk/anthropic` 4.0.99 · dev: `vitest` 5.1.0 · `tsx` 4.23.15.
+**New dependencies, all exact-pinned, please confirm:** `@supabase/supabase-js` 2.119.0 · `zod` 4.6.7 · `server-only` 0.0.1 · `ai` 7.0.165 · `@ai-sdk/openai` 4.0.111 · dev: `vitest` 5.1.0 · `tsx` 4.23.15.
 
 ## Requirements
 
@@ -126,7 +126,7 @@ An expired lease can be taken over after a crash. Rejected: `pg_advisory_lock`, 
 
 **T05**
 10. `models.ts` holds the only model IDs. The fallback is named as a candidate, since open decision 2 is open.
-11. The pricing table carries its read date and handles Haiku's ≤100k and >100k tiers, 5-minute cache writes and reads. An unknown model throws.
+11. The pricing table carries its read date and handles the primary model's ≤272k and >272k tiers, 30-minute cache writes and reads. An unknown model throws.
 
 **T06**
 12. `recordCall` wraps a call and writes one row whatever the outcome, with tokens from the SDK's usage. JSONL when run from a script. Error text is redacted first. Tested with the SDK's mock model; no network.

@@ -2,10 +2,10 @@
 // date together, and only from the page itself.
 import { FALLBACK_MODEL_CANDIDATE, PRIMARY_MODEL } from "@/lib/models";
 
-export const PRICING_SOURCE = "https://platform.claude.com/docs/en/about-claude/pricing";
+export const PRICING_SOURCE = "https://developers.openai.com/api/docs/pricing";
 export const PRICING_READ_ON = "2026-11-08";
 
-/** USD per 1M tokens. cacheWrite is the 5-minute TTL, the only one this project uses. */
+/** USD per 1M tokens, standard tier. cacheWrite is the 30-minute default, the only one this project uses. */
 type Rates = { input: number; cacheWrite: number; cacheRead: number; output: number };
 
 type ModelPrice = {
@@ -18,12 +18,16 @@ export const PRICES: Record<string, ModelPrice> = {
   [PRIMARY_MODEL]: {
     rates: { input: 0.1, cacheWrite: 0.125, cacheRead: 0.01, output: 0.5 },
     longPrompt: {
-      overPromptTokens: 100_000,
-      rates: { input: 0.5, cacheWrite: 0.625, cacheRead: 0.05, output: 2.5 },
+      overPromptTokens: 272_000,
+      rates: { input: 0.2, cacheWrite: 0.25, cacheRead: 0.02, output: 0.75 },
     },
   },
   [FALLBACK_MODEL_CANDIDATE]: {
     rates: { input: 2, cacheWrite: 2.5, cacheRead: 0.1, output: 10 },
+    longPrompt: {
+      overPromptTokens: 272_000,
+      rates: { input: 4, cacheWrite: 5, cacheRead: 0.2, output: 15 },
+    },
   },
 };
 

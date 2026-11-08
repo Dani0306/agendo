@@ -5,27 +5,30 @@ import { callCostUsd, PRICES, PRICING_READ_ON, UnknownModelPriceError } from "./
 const none = { inputTokens: 0, cacheWriteTokens: 0, cacheReadTokens: 0, outputTokens: 0 };
 
 describe("callCostUsd", () => {
-  it("prices every kind of token on Haiku, worked by hand", () => {
+  it("prices every kind of token on the primary model, worked by hand", () => {
     // 1000 × 0.10 + 2000 × 0.125 + 3000 × 0.01 + 400 × 0.50 = 580 per million
     expect(
       callCostUsd(PRIMARY_MODEL, { inputTokens: 1000, cacheWriteTokens: 2000, cacheReadTokens: 3000, outputTokens: 400 }),
     ).toBe(0.00058);
   });
 
-  it("keeps the normal rate at exactly 100,000 prompt tokens", () => {
-    expect(callCostUsd(PRIMARY_MODEL, { ...none, inputTokens: 100_000 })).toBe(0.01);
+  it("keeps the normal rate at exactly 272,000 prompt tokens", () => {
+    expect(callCostUsd(PRIMARY_MODEL, { ...none, inputTokens: 272_000 })).toBe(0.0272);
   });
 
-  it("switches the whole request to the long-prompt rate above 100,000", () => {
-    expect(callCostUsd(PRIMARY_MODEL, { ...none, inputTokens: 100_001, outputTokens: 10 })).toBe(0.0500255);
+  it("switches the whole request to the long-prompt rate above 272,000", () => {
+    // 272,001 × 0.20 + 10 × 0.75 = 54,407.7 per million
+    expect(callCostUsd(PRIMARY_MODEL, { ...none, inputTokens: 272_001, outputTokens: 10 })).toBe(0.0544077);
   });
 
   it("counts cached tokens toward the long-prompt threshold", () => {
-    expect(callCostUsd(PRIMARY_MODEL, { ...none, inputTokens: 1, cacheReadTokens: 100_000 })).toBe(0.0050005);
+    // 1 × 0.20 + 272,000 × 0.02 = 5,440.2 per million
+    expect(callCostUsd(PRIMARY_MODEL, { ...none, inputTokens: 1, cacheReadTokens: 272_000 })).toBe(0.0054402);
   });
 
-  it("prices the fallback candidate with no long-prompt tier", () => {
-    expect(callCostUsd(FALLBACK_MODEL_CANDIDATE, { ...none, inputTokens: 200_000 })).toBe(0.4);
+  it("prices the fallback candidate, including its long-prompt tier", () => {
+    expect(callCostUsd(FALLBACK_MODEL_CANDIDATE, { ...none, inputTokens: 100_000 })).toBe(0.2);
+    expect(callCostUsd(FALLBACK_MODEL_CANDIDATE, { ...none, inputTokens: 300_000 })).toBe(1.2);
   });
 
   it("throws on a model with no price", () => {

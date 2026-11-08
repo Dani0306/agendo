@@ -14,7 +14,7 @@
     "seed": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/seed.ts"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "4.0.99",
+    "@ai-sdk/openai": "4.0.111",
     "@supabase/supabase-js": "2.119.0",
     "ai": "7.0.165",
     "next": "16.4.5",

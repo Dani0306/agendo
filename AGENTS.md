@@ -77,10 +77,10 @@ There are two small surfaces: the **web chat demo** (the same agent as WhatsApp,
 API shapes, model IDs, prices, limits and WhatsApp rules move. Fetch the real page before writing code against one, and never write them from memory. If you cannot verify something, write `VERIFY`. If a doc contradicts this file, the doc wins: tell the owner and update this file.
 
 - `node_modules/next/dist/docs/`: routing, route handlers, server and client boundaries, caching.
-- `node_modules/ai/docs` and `node_modules/@ai-sdk/anthropic/docs` (once installed): tool calling, step limits, streaming, telemetry, provider options, cache control. These match the installed versions.
-- The vendor pages listed in `CLAUDE.md` → Reference docs: Twilio WhatsApp sandbox, Supabase Cron, Edge Functions and RLS, Upstash Redis, Claude prompt caching, rate limits, tool use and pricing, Langfuse, OWASP Top 10 for LLM apps.
+- `node_modules/ai/docs` and `node_modules/@ai-sdk/openai/docs` (once installed): tool calling, step limits, streaming, telemetry, provider options, cache control. These match the installed versions.
+- The vendor pages listed in `CLAUDE.md` → Reference docs: Twilio WhatsApp sandbox, Supabase Cron, Edge Functions and RLS, Upstash Redis, OpenAI models, pricing and prompt caching, Langfuse, OWASP Top 10 for LLM apps.
 - **Meta's WhatsApp Cloud API docs blocked the automated link check.** Ask the owner to open and confirm the relevant page before relying on anything about templates, the 24-hour window or pricing.
-- If your agent has Supabase skills (for example `supabase` and `supabase-postgres-best-practices`), use them for schema, RLS, migrations, constraints, indexes, pg_cron and Edge Function work. If it has a `claude-api` skill, load it before writing any model call.
+- If your agent has Supabase skills (for example `supabase` and `supabase-postgres-best-practices`), use them for schema, RLS, migrations, constraints, indexes, pg_cron and Edge Function work. Model calls go to OpenAI, so the `claude-api` skill doesn't apply.
 
 ---
 
@@ -130,7 +130,7 @@ Create folders only when a task needs them. Keep these responsibilities apart:
 
 # 6. Tech stack
 
-Next.js App Router, TypeScript strict, Tailwind · Vercel AI SDK (`ai`, `@ai-sdk/react`) with `@ai-sdk/anthropic` · primary model `claude-haiku-5-5` with prompt caching on the per-tenant system prompt; the fallback model is open decision 2 (candidates: `claude-sonnet-5-5`, or a second provider) · Supabase Postgres in schema `agendo` of the shared lab project, multi-tenant with RLS · pg_cron + a Supabase Edge Function for reminders · Twilio WhatsApp Sandbox for development · Upstash Redis free tier for per-number rate limits and the response cache · Langfuse Cloud free tier via AI SDK telemetry · Resend for the owner's daily digest · Zod · Vitest · Playwright for the web chat demo · `tsx` for scripts · Vercel Hobby. Versions are exact-pinned in `package.json`. Model IDs and prices were read on 8 Nov 2026 (`CLAUDE.md` → Cost model); re-read the pricing page when writing `lib/models.ts` and `lib/cost`.
+Next.js App Router, TypeScript strict, Tailwind · Vercel AI SDK (`ai`, `@ai-sdk/react`) with `@ai-sdk/openai` (OpenAI is the only model provider; the owner has only an OpenAI key) · primary model `gpt-6-luna` with prompt caching on the per-tenant system prompt; the fallback model is open decision 2 (candidate: `gpt-6.1-sol`, same provider) · Supabase Postgres in schema `agendo` of the shared lab project, multi-tenant with RLS · pg_cron + a Supabase Edge Function for reminders · Twilio WhatsApp Sandbox for development · Upstash Redis free tier for per-number rate limits and the response cache · Langfuse Cloud free tier via AI SDK telemetry · Resend for the owner's daily digest · Zod · Vitest · Playwright for the web chat demo · `tsx` for scripts · Vercel Hobby. Versions are exact-pinned in `package.json`. Model IDs and prices were read on 8 Nov 2026 (`CLAUDE.md` → Cost model); re-read the pricing page when writing `lib/models.ts` and `lib/cost`.
 
 Do not use: LangChain, LlamaIndex, RAG or a vector database (the tenant FAQ is one or two pages and goes in the cached system prompt), fine-tuning, payments, calendar sync, a native app, a new language or framework. Python only for an optional notebook analysing eval or cost exports; metrics are computed in TypeScript so CI needs no Python.
 
@@ -249,7 +249,7 @@ None of these is measured in this repo yet. Items marked VERIFY come from the br
 - **Exclusion constraints need `btree_gist`** for the `resource_id with =` part, and `[)` range bounds, or back-to-back bookings conflict.
 - **Colombia has no daylight saving time**, so DST bugs won't show up with `America/Bogota`. Test the timezone code with a DST zone too (for example `America/New_York` across a change date).
 - **Phone hashes must be keyed.** Phone numbers are a small space, so a plain SHA-256 can be reversed by trying them all. Use an HMAC with a secret pepper from `.env.local`.
-- **Prompt caching has a minimum prefix length:** 512 tokens on Haiku 5.5 and Sonnet 5.5 (read 8 Nov 2026). Below it nothing is cached and no error is returned, so check that the cache usage fields aren't both 0. Cache writes cost 1.25× input (5-minute TTL), so measure the break-even before claiming a saving. Read hits from the SDK's cache-read usage fields, not from estimates.
+- **Prompt caching has a minimum prefix length:** 1,024 tokens for GPT-5.6 and later (OpenAI docs, read 8 Nov 2026). The static instructions plus a small tenant block may land near that, so count tokens before assuming a cache hit and check that the cache usage fields aren't both 0. Cache writes cost 1.25× input and reads 0.1× on `gpt-6-luna` (default 30-minute lifetime), so measure the break-even before claiming a saving. Read hits from the SDK's cache-read usage fields, not from estimates.
 - **AI SDK versions differ from most tutorials.** Call options, tool-loop step limits and telemetry setup change between major versions, and vendor integration pages (Langfuse included) can lag behind. Write against `node_modules/ai/docs` for the installed version, not against a tutorial.
 - **Serverless instances share no memory.** An in-memory rate limiter, breaker or cache is per instance and resets on a cold start, which is why that state lives in Redis.
 - **Vercel Hobby** is non-commercial only (read 8 Nov 2026), and commercial use covers financial gain of anyone involved. A paying client means a plan change before go-live.
@@ -285,7 +285,7 @@ Work the tasks in order; a task needs the ones before it. A phase starts only wh
 
 ### Phase 0: Decisions that unblock everything
 - **T01** Choose the business type to model first (open decision 1; recommend a barbershop or salon). Write the synthetic tenant: services with durations and prices, resources, hours, FAQ, in Spanish.
-- **T02** VERIFY the WhatsApp 24-hour-window and template rules, Twilio sandbox limits and current Claude model IDs and prices. Record what was read and the date in `CLAUDE.md`. ✋ the owner confirms the Meta page by hand.
+- **T02** VERIFY the WhatsApp 24-hour-window and template rules, Twilio sandbox limits and current OpenAI model IDs and prices. Record what was read and the date in `CLAUDE.md`. ✋ the owner confirms the Meta page by hand.
 
 ### Phase 1: Foundation
 - **T03** 📝 🎓 Migration: schema `agendo` in the lab project, all tables from section 8, RLS on every tenant-scoped table, grants, schema exposed in API settings. Teaches multi-tenant RLS; rejected alternative: one schema per tenant.
