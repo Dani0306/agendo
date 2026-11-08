@@ -1,0 +1,69 @@
+{
+  "_note": "Synthetic demo tenant. The business, address, people and prices are invented. monthly_budget_usd stays null until open decision 4 closes.",
+  "tenant": {
+    "name": "Fisio Aurora (demo)",
+    "business_type": "outpatient_physical_therapy",
+    "timezone": "America/Bogota",
+    "language": "es",
+    "currency": "COP",
+    "monthly_budget_usd": null,
+    "receiving_number": "whatsapp:+14155238886"
+  },
+  "services": [
+    { "name": "Valoración inicial", "duration_minutes": 60, "price": 90000 },
+    { "name": "Sesión de fisioterapia", "duration_minutes": 45, "price": 70000 },
+    { "name": "Sesión de rehabilitación deportiva", "duration_minutes": 60, "price": 85000 },
+    { "name": "Control de seguimiento", "duration_minutes": 30, "price": 50000 }
+  ],
+  "resources": [
+    { "name": "Laura", "kind": "fisioterapeuta" },
+    { "name": "Andrés", "kind": "fisioterapeuta" },
+    { "name": "Camila", "kind": "fisioterapeuta" }
+  ],
+  "availability_rules": {
+    "applies_to": "all_resources",
+    "weekly": [
+      { "weekday": "monday", "opens": "07:00", "closes": "18:00" },
+      { "weekday": "tuesday", "opens": "07:00", "closes": "18:00" },
+      { "weekday": "wednesday", "opens": "07:00", "closes": "18:00" },
+      { "weekday": "thursday", "opens": "07:00", "closes": "18:00" },
+      { "weekday": "friday", "opens": "07:00", "closes": "18:00" },
+      { "weekday": "saturday", "opens": "08:00", "closes": "12:00" }
+    ],
+    "closed_dates": ["2026-12-24", "2026-12-25", "2026-12-31", "2027-01-01"]
+  },
+  "faq": [
+    {
+      "question": "¿Dónde están ubicados?",
+      "answer": "Estamos en la Calle Ficticia 12 # 34-56, consultorio 201, Medellín."
+    },
+    {
+      "question": "¿Qué horario tienen?",
+      "answer": "Atendemos de lunes a viernes de 7:00 a. m. a 6:00 p. m. y los sábados de 8:00 a. m. a 12:00 m. Los domingos no atendemos."
+    },
+    {
+      "question": "¿Atienden por EPS o medicina prepagada?",
+      "answer": "Por ahora solo atendemos de forma particular. No tenemos convenios con EPS ni con medicina prepagada."
+    },
+    {
+      "question": "¿Cómo se paga?",
+      "answer": "El pago se hace en la clínica el día de la cita, en efectivo, tarjeta o transferencia."
+    },
+    {
+      "question": "¿Puedo cancelar o cambiar mi cita?",
+      "answer": "Sí, puedes cancelar o cambiar tu cita por este chat. Te pedimos hacerlo con al menos 12 horas de anticipación."
+    },
+    {
+      "question": "¿Qué debo llevar a la primera cita?",
+      "answer": "Ven con ropa cómoda y llega 10 minutos antes. Si tienes exámenes u órdenes médicas, tráelos a la cita; no hace falta enviarlos por este chat."
+    },
+    {
+      "question": "¿Hacen visitas a domicilio?",
+      "answer": "No, por ahora solo atendemos en la clínica."
+    },
+    {
+      "question": "¿Me pueden decir qué tratamiento necesito?",
+      "answer": "Por este chat no damos indicaciones médicas. Agenda una valoración inicial y el fisioterapeuta te orientará en persona."
+    }
+  ]
+}
