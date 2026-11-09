@@ -1,6 +1,6 @@
 # 002 — Phase 2: Booking core (T10–T14)
 
-**Status:** approved
+**Status:** done (the WhatsApp half of the exit check is open)
 **Branches:** `feat/t10-t11-booking-rules` → `feat/t12-t13-agent` → `feat/t14-web-chat`, stacked on `chore/openai-only`
 **Phase:** 2 (see `CLAUDE.md` → Workflow)
 
@@ -142,8 +142,29 @@ This does not fit one short session. It splits at three stopping points, each le
 
 ## Manual test steps
 
-Filled in with exact steps when the work is done.
+1. Make sure `npm run dev` is running, restarted since `DEMO_CHAT_ENABLED=1` went into `.env.local`.
+2. Open http://localhost:3000 and click the examples in order: `Hola`, `ACEPTO`, then the valoración example.
+3. Expect a confirmation with a "Estado en la base de datos" panel showing therapist, local time and timezone.
+4. Click the reschedule and cancel examples. The panel should follow each change.
+5. Click `Reiniciar`, go through consent again and ask for the same time three more times with new visitors. After the three therapists are taken, the reply says the slot was taken and lists alternatives.
+6. Stop the tunnel when you aren't testing: it exposes `/api/chat`, which has no rate limit yet.
 
 ## Results
 
-Filled in after the work.
+**Numbers (9 Nov 2026).**
+- Constraint on the lab project: 10 parallel inserts, 1 accepted, 9 rejected with `23P01`. The rolled-back SQL test passes.
+- Live smoke on `gpt-6-luna`: book, reschedule and cancel all reached the database and matched its rows. 7 model calls, $0.000676, median 1,994 ms and max 2,672 ms per call. Input 21, cached 13,883, output 336 tokens. The estimate was $0.005, about seven times too high, because the prompt cached after the first call.
+- 215 unit tests and 8 Playwright tests pass. Typecheck, lint and build pass. Security advisor reports nothing.
+
+**What surprised me.**
+- `normalizePhone` strips everything but digits, so a web visitor id would have lost most of its value and visitors could have shared a customer. The unit tests didn't catch it, because the fake store ignores the hash. Web visitors now use `hashWebVisitor`.
+- Deleting a tenant that has bookings fails with `23503`: the foreign keys from `bookings` to `services` and `resources` don't cascade, and that check fires before the cascade from `customers` has removed the bookings.
+- The first race run left its synthetic tenant behind for that reason. Its cleanup was then declined, so it is still there (`Race test`, `whatsapp:+19999999901`, one booking in 2030). It affects nothing and is the owner's to remove.
+
+**What changed from the plan.**
+- Playwright runs against a production build instead of `next dev`, so it can run beside a developer's dev server.
+- Slot-taken replies are built by code as well, so that outcome also needs no further model call.
+
+**Still open.**
+- WhatsApp delivery, as above. Everything up to the reply object is tested; a real phone is not.
+- No rate limit, budget or output rules yet (T16, T17, T23).

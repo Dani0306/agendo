@@ -43,3 +43,7 @@ next-env.d.ts
 
 # model-call logs from scripts
 /logs
+
+# playwright
+/test-results
+/playwright-report

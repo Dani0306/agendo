@@ -105,11 +105,13 @@ Phases are gated by their exit checks, not by the calendar: a phase starts only 
 
 **Phase 2: Booking core.** Exit: a customer can book, reschedule and cancel in both channels, and the database rejects a conflicting slot.
 
-- [ ] T10 Exclusion constraint + overlapping-insert test
-- [ ] T11 Availability maths and timezone handling (injected clock, a DST zone in tests)
-- [ ] T12 📝 Booking tools with Zod arguments and server-side tenant scoping
-- [ ] T13 Tool loop with step limit and timeout
-- [ ] T14 📝 Web chat demo on the same core + Playwright test
+- [x] T10 Exclusion constraint + overlapping-insert test
+- [x] T11 Availability maths and timezone handling (injected clock, a DST zone in tests)
+- [x] T12 📝 Booking tools with Zod arguments and server-side tenant scoping
+- [x] T13 Tool loop with step limit and timeout
+- [x] T14 📝 Web chat demo on the same core + Playwright test
+
+Phase 2 exit: met on the web chat, **open on WhatsApp** until Twilio delivers a reply (started early by owner decision, 9 Nov).
 
 **Phase 3: Cost control and reminders.** Exit: reminders send on schedule, an over-budget tenant is blocked, and the cache saving is a recorded number.
 
@@ -236,7 +238,7 @@ Read from vendor pages on 8 Nov 2026 (T02).
 - **Sandbox:** membership expires **3 days after joining**. One message every 3 seconds. Only joined numbers receive messages. Three built-in templates (Appointment Reminders, Order Notifications, Verification Codes), no custom templates. Whether buttons work there isn't stated, so the button menu starts as numbered text.
 - **Template category:** templates that don't come from an explicit user request will likely be categorised as Marketing, so the customer should ask for or agree to reminders.
 - **Webhook:** Twilio's defaults are 5 s to connect, 15 s read, 15 s total, 1 retry on connection failure. The agent loop can outlast that, so the webhook should acknowledge first and send the reply through the API. The T08 prompt decides.
-- **Trial accounts refuse free-text API sends** (measured 9 Nov 2026): a REST send with `Body` returned HTTP 400, code 21654, and the console's own API example sends only a `ContentSid` template. The Phase 1 webhook therefore returns static replies inline as TwiML. This does not fit the agent loop (15 s limit), so T13 must pick between upgrading the Twilio account and another route; the owner decides, since upgrading spends money.
+- **Trial accounts refuse free-text API sends** (measured 9 Nov 2026): a REST send with `Body` returned HTTP 400, code 21654, and the console's own API example sends only a `ContentSid` template. The Phase 1 webhook therefore returns static replies inline as TwiML. A TwiML reply was generated and returned, but Twilio's log shows no outbound message, so delivery is unconfirmed. T13 keeps replies inline under a 12 s agent deadline. The owner decides whether to upgrade the account, since that spends money.
 - **Signature:** computed over the exact configured URL plus all form parameters sorted by name. Leave any `#` override fragment out when validating.
 - **Vercel Hobby:** non-commercial only. Commercial covers financial gain of anyone involved, including receiving payment to create or host the site. Check with Vercel Support or move to Pro before a paying client.
 
@@ -291,3 +293,4 @@ Keep this current. Append one line per working session: date, what shipped, the 
 - **2026-11-08** — Phase 0 in progress. T01: owner chose home healthcare and outpatient clinics over the recommended barbershop, so health-sector rules were added (explicit consent first, data minimisation, no clinical advice, neutral reminders). T02: model IDs, prices and platform limits read from vendor pages and recorded. Haiku 5.5 is $0.10/$0.50 per 1M and caches from 512 tokens; the Sandbox expires after 3 days and offers no custom templates; buttons need templates; Twilio's webhook timeout is 15 s. T01 closed with the synthetic tenant Fisio Aurora (demo), an outpatient physio clinic; home visits parked. No code; $0 spent. Next: owner reads Meta policy section 3 to close T02, then T03.
 - **2026-11-08 (Phase 1, prompt 001)** — T03–T09 built on four stacked local branches. Thirteen `agendo` tables with composite tenant foreign keys, member-only read policies and a column grant hiding phone data; the migration and isolation script pass on PGlite, and the script caught a deliberately broken policy. Dated price table, `recordCall`, keyed phone hash, AES-256-GCM phone storage, signed webhook, consent gate (nothing stored before consent but the literal answer), and a per-conversation lease. 103 tests; forged and unsigned POSTs get 403 on the built route. No model calls; $0 spent. Next: owner applies the migration, joins the Sandbox and runs the exit check.
 - **2026-11-08 (OpenAI only)** — Owner confirmed Agendo uses only an OpenAI key. Dropped `@ai-sdk/anthropic` for `@ai-sdk/openai` 4.0.111; `gpt-6-luna` is primary and `gpt-6.1-sol` the fallback candidate. Pricing table rewritten from OpenAI's page (272k long-prompt tier instead of 100k); prompt cache minimum is 1,024 tokens, not 512. The fallback now shares the primary's provider, so the chaos test must cover an OpenAI-wide failure. 103 tests pass. A real Supabase key had been pasted into `.env.example`; it never reached a commit and now lives in `.env.local`. $0 spent.
+- **2026-11-09 (Phase 2, prompt 002)** — T10–T14 built on three stacked local branches, started before Phase 1's exit check by owner decision. Exclusion constraint live on the lab project (10 parallel inserts: 1 accepted, 9 `23P01`); availability maths with DST tests; six tools scoped by the server; hand-written tool loop (5 calls, 12 s or 25 s deadline, one write per turn, confirmations built from the row); emergency check before any model call; web chat on the same core. Live smoke on `gpt-6-luna`: booked, rescheduled and cancelled for $0.000676 in 7 calls, median 2.0 s. 215 unit and 8 Playwright tests pass. WhatsApp delivery is still unproven (Twilio trial). Next: settle Twilio, then Phase 3.

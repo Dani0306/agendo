@@ -10,6 +10,7 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
     "db:smoke": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/db-smoke.ts",
     "seed": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/seed.ts",
     "db:race": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/db-race.ts",
@@ -26,6 +27,7 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "1.65.0",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "24.19.2",
     "@types/react": "^19",

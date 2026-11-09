@@ -95,7 +95,7 @@ src/app/               pages and route handlers; thin
   dashboard/           owner dashboard
 src/lib/
   agent/               the tool loop: prompt assembly, step limit, timeout, output checks
-  tools/               check_availability, create_booking, reschedule_booking, cancel_booking, handoff_to_human
+  tools/               check_availability, create_booking, reschedule_booking, cancel_booking, my_bookings, handoff_to_human
   channels/            whatsapp (Twilio) and web adapters: parse inbound, send outbound
   guard/               rate limit, budget reserve/settle/refund, response cache
   resilience/          fallback chain, retry with backoff and jitter, circuit breaker, button menu
@@ -197,6 +197,7 @@ Messages within one conversation are handled one at a time (a customer who sends
 - **`check_availability`** returns free slots computed from `availability_rules` minus confirmed bookings, in local time with the timezone named.
 - **`create_booking` and `reschedule_booking`** insert or update inside a transaction and let the exclusion constraint decide. A constraint violation (`23P01`) is a normal result ("that slot was just taken"), returned with alternatives, never an error to the customer.
 - **`cancel_booking`** acts only on the customer's own bookings, looked up by the conversation's customer, never by an id the model invents.
+- **`my_bookings`** lists this customer's upcoming bookings, so the agent can answer "when is my appointment?" and tell two bookings apart.
 - **`handoff_to_human`** marks the conversation for a person and stops the agent replying until the owner releases it. The auto-written summary is stretch.
 - **Dates:** the model may propose a local date-time; code converts it with the tenant's timezone and rejects ambiguous or past times. Confirmations always state the day, date and time.
 - **Prompt injection:** customer text and tool results are wrapped as data. The prompt never grants the model authority the tools don't enforce, so a successful injection can at most produce wrong text, which the output check catches. Follow the OWASP Top 10 for LLM apps.
@@ -242,12 +243,14 @@ None of these is measured in this repo yet. Items marked VERIFY come from the br
 - **Buttons are not free-form text** (read 8 Nov 2026). Buttons and lists need a template even inside the window, and the Sandbox page doesn't say whether they work there. Build the button-menu fallback as a numbered text menu first.
 - **Twilio signatures** are computed over the exact public URL and the form parameters sorted by name; leave out any `#` override fragment. Behind Vercel the URL your code sees can differ from the one Twilio signed (host, protocol, trailing slash). Test it on a real deploy or tunnel, not just in unit tests.
 - **Twilio gives a webhook 15 seconds in total** (read 8 Nov 2026), with 1 retry on connection failure by default. An agent loop can take longer, so plan to acknowledge first and send the reply through the API. Decide in the T08 prompt.
-- **A Twilio trial account refuses free-text REST sends** (measured 9 Nov 2026: HTTP 400, code 21654; the console example sends only a `ContentSid`). Replies in Phase 1 are returned inline as TwiML from the webhook. That cannot carry a slow agent loop, so T13 revisits it.
+- **A Twilio trial account refuses free-text REST sends** (measured 9 Nov 2026: HTTP 400, code 21654; the console example sends only a `ContentSid`). Replies are returned inline as TwiML from the webhook, under a 12 s agent deadline. Twilio's log showed no outbound message for one, so delivery is unconfirmed.
 - **Providers retry webhooks.** Without the unique provider message id, a retry books twice or replies twice.
 - **The service-role key bypasses RLS.** RLS protects against the `anon` key and the dashboard, not against server code using the secret key. Server code must still scope every query by tenant. Decide in the T03 prompt whether the dashboard reads with the owner's session (RLS enforced) and how tests prove one tenant can't read another's rows.
 - **Shared lab project.** Agendo shares the Supabase project with PaperTrail. `supabase-js` reaches `agendo` only if the schema is exposed in the API settings and granted; check with a test whether a missing grant shows up as an error or as an empty result (VERIFY). Check the Supabase MCP points at the lab project before applying anything.
 - **`customers` has a column grant.** `authenticated` can't read the phone columns, so a dashboard query must name its columns; `select *` is refused.
 - **Exclusion constraints need `btree_gist`** for the `resource_id with =` part, and `[)` range bounds, or back-to-back bookings conflict.
+- **Deleting a tenant that has bookings fails** (measured 9 Nov 2026, `23503`). The foreign keys from `bookings` to `services` and `resources` don't cascade. Delete the tenant's bookings first.
+- **`normalizePhone` keeps only digits and `+`.** Use it for phone numbers only; a web visitor id goes through `hashWebVisitor`.
 - **Colombia has no daylight saving time**, so DST bugs won't show up with `America/Bogota`. Test the timezone code with a DST zone too (for example `America/New_York` across a change date).
 - **Phone hashes must be keyed.** Phone numbers are a small space, so a plain SHA-256 can be reversed by trying them all. Use an HMAC with a secret pepper from `.env.local`.
 - **Prompt caching has a minimum prefix length:** 1,024 tokens for GPT-5.6 and later (OpenAI docs, read 8 Nov 2026). The static instructions plus a small tenant block may land near that, so count tokens before assuming a cache hit and check that the cache usage fields aren't both 0. Cache writes cost 1.25× input and reads 0.1× on `gpt-6-luna` (default 30-minute lifetime), so measure the break-even before claiming a saving. Read hits from the SDK's cache-read usage fields, not from estimates.
