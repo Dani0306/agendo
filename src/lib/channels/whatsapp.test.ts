@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { computeTwilioSignature, isValidTwilioSignature, sendWhatsApp, WhatsAppInboundSchema } from "./whatsapp";
+import { computeTwilioSignature, isValidTwilioSignature, sendWhatsApp, twimlReply, WhatsAppInboundSchema } from "./whatsapp";
 
 const URL_SIGNED = "https://example.test/api/whatsapp";
 const TOKEN = "test-token";
@@ -71,5 +71,19 @@ describe("sendWhatsApp", () => {
 
     expect(String(failure)).toContain("63015");
     expect(String(failure)).not.toContain("573000000001");
+  });
+});
+
+describe("twimlReply", () => {
+  it("wraps each text in its own Message", () => {
+    expect(twimlReply(["uno", "dos"])).toBe(
+      '<?xml version="1.0" encoding="UTF-8"?><Response><Message>uno</Message><Message>dos</Message></Response>',
+    );
+  });
+
+  it("escapes characters that would break the XML", () => {
+    const xml = twimlReply([`Tom & "Jerry" <b>it's</b>`]);
+    expect(xml).toContain("Tom &amp; &quot;Jerry&quot; &lt;b&gt;it&apos;s&lt;/b&gt;");
+    expect(xml).not.toContain("<b>");
   });
 });

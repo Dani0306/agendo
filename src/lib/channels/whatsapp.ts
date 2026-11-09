@@ -4,6 +4,17 @@ import { z } from "zod";
 /** Sent back to Twilio when the reply goes out separately through the REST API. */
 export const EMPTY_TWIML = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>';
 
+const XML_ESCAPES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" };
+
+/**
+ * Replies carried in the webhook response itself, one <Message> each. Trial Twilio
+ * accounts refuse free-text REST sends (error 21654) but accept a TwiML reply.
+ */
+export function twimlReply(texts: string[]): string {
+  const messages = texts.map((text) => `<Message>${text.replace(/[&<>"']/g, (char) => XML_ESCAPES[char]!)}</Message>`);
+  return `<?xml version="1.0" encoding="UTF-8"?><Response>${messages.join("")}</Response>`;
+}
+
 export const WhatsAppInboundSchema = z.object({
   MessageSid: z.string().regex(/^(SM|MM)[0-9a-zA-Z]+$/),
   From: z.string().startsWith("whatsapp:+"),
