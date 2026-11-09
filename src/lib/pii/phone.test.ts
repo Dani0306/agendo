@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { decryptPhone, encryptPhone, hashPhone, loadPiiSecrets, normalizePhone } from "./phone";
+import { decryptPhone, encryptPhone, hashPhone, hashWebVisitor, loadPiiSecrets, normalizePhone } from "./phone";
 
 const PHONE = "+573000000001";
 const key = randomBytes(32);
@@ -69,5 +69,17 @@ describe("normalizePhone and loadPiiSecrets", () => {
 
   it("throws on a key of the wrong size", () => {
     expect(() => loadPiiSecrets({ ...valid, PHONE_ENCRYPTION_KEY: "c2hvcnQ=" })).toThrow();
+  });
+});
+
+describe("hashWebVisitor", () => {
+  const pepper = "p".repeat(32);
+
+  it("keeps visitors apart even when their ids hold no digits", () => {
+    expect(hashWebVisitor("abc", pepper)).not.toBe(hashWebVisitor("def", pepper));
+  });
+
+  it("can't collide with a phone hash", () => {
+    expect(hashWebVisitor("+573000000001", pepper)).not.toBe(hashPhone("+573000000001", pepper));
   });
 });

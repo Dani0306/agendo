@@ -2,7 +2,7 @@ export const CONSENT_VERSION = "v1-draft";
 
 export type ConsentStatus = "pending" | "granted" | "declined";
 
-export type ConsentDecision = "grant" | "decline" | "request_consent" | "acknowledge" | "ask_to_resend" | "ignore";
+export type ConsentDecision = "grant" | "decline" | "request_consent" | "run_agent" | "ask_to_resend" | "ignore";
 
 const ACCEPT_WORD = "ACEPTO";
 const DECLINE_WORD = "NO";
@@ -26,7 +26,7 @@ export function storableBeforeConsent(text: string): string | null {
 }
 
 export function decideConsent(status: ConsentStatus, storedContent: string | null): ConsentDecision {
-  if (status === "granted") return storedContent === null ? "ask_to_resend" : "acknowledge";
+  if (status === "granted") return storedContent === null ? "ask_to_resend" : "run_agent";
   if (storedContent === ACCEPT_WORD) return "grant";
   if (status === "declined") return "ignore";
   return storedContent === DECLINE_WORD ? "decline" : "request_consent";
@@ -43,12 +43,12 @@ export function consentRequestText(clinicName: string, privacyUrl: string): stri
   ].join("\n\n");
 }
 
-export const CONSENT_GRANTED_REPLY = "Gracias por autorizar. Ya puedes escribirnos por este chat.";
+export const CONSENT_GRANTED_REPLY = "Gracias por autorizar. ¿En qué te ayudo? Puedo agendar, cambiar o cancelar citas y responder tus preguntas.";
 
 export const CONSENT_DECLINED_REPLY =
   "Entendido. No usaremos tus datos por este chat y borramos tu número. Para agendar, comunícate directamente con la clínica. Si cambias de opinión, escribe ACEPTO.";
 
-export const MESSAGE_RECEIVED_REPLY = "Recibimos tu mensaje. Muy pronto podrás agendar tus citas por este chat.";
+export const TEXT_ONLY_REPLY = "Por ahora solo puedo leer mensajes de texto. ¿Me lo escribes, por favor?";
 
 export const RESEND_MESSAGE_REPLY =
   "Tu mensaje llegó antes de tu autorización, así que no lo guardamos. Por favor envíalo de nuevo.";

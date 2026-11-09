@@ -33,6 +33,11 @@ export function hashPhone(phone: string, pepper: string): string {
   return createHmac("sha256", pepper).update(normalizePhone(phone)).digest("hex");
 }
 
+/** For web demo visitors. Their random id isn't a phone number, so it skips normalizePhone. */
+export function hashWebVisitor(visitorId: string, pepper: string): string {
+  return createHmac("sha256", pepper).update(`web:${visitorId}`).digest("hex");
+}
+
 export function encryptPhone(phone: string, key: Buffer): string {
   const iv = randomBytes(IV_BYTES);
   const cipher = createCipheriv("aes-256-gcm", key, iv);

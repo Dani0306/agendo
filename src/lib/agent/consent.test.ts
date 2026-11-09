@@ -26,8 +26,8 @@ describe("decideConsent", () => {
     ["declined", "ACEPTO", "grant"],
     ["declined", "NO", "ignore"],
     ["declined", null, "ignore"],
-    ["granted", "quiero una cita", "acknowledge"],
-    ["granted", "", "acknowledge"],
+    ["granted", "quiero una cita", "run_agent"],
+    ["granted", "", "run_agent"],
     ["granted", null, "ask_to_resend"],
   ] as const)("%s with %s gives %s", (status, content, decision) => {
     expect(decideConsent(status, content)).toBe(decision);

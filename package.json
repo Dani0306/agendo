@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "db:smoke": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/db-smoke.ts",
     "seed": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/seed.ts",
-    "db:race": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/db-race.ts"
+    "db:race": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/db-race.ts",
+    "agent:smoke": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/agent-smoke.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "4.0.111",

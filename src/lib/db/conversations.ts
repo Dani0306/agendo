@@ -1,4 +1,4 @@
-import type { ConversationStore, Customer } from "@/lib/agent/handle-inbound";
+import type { ConversationStatus, ConversationStore, Customer } from "@/lib/agent/handle-inbound";
 import type { ConsentStatus } from "@/lib/agent/consent";
 import type { Db } from "./client";
 import { unwrap } from "./unwrap";
@@ -9,6 +9,17 @@ const CUSTOMER_COLUMNS = "id, consent_status, phone_encrypted";
 
 function toCustomer(row: CustomerRow): Customer {
   return { id: row.id, consentStatus: row.consent_status, phoneEncrypted: row.phone_encrypted };
+}
+
+export async function markConversationHandoff(client: Db, tenantId: string, conversationId: string): Promise<void> {
+  unwrap(
+    await client
+      .from("conversations")
+      .update({ status: "handoff" })
+      .eq("tenant_id", tenantId)
+      .eq("id", conversationId)
+      .select("id"),
+  );
 }
 
 /** The secret key bypasses RLS, so every query here filters by tenant_id itself. */
@@ -56,12 +67,12 @@ export function conversationStore(client: Db): ConversationStore {
       );
     },
 
-    async findOrCreateConversation(tenantId, customerId) {
+    async findOrCreateConversation(tenantId, customerId, channel) {
       unwrap(
         await client
           .from("conversations")
           .upsert(
-            { tenant_id: tenantId, customer_id: customerId, channel: "whatsapp" },
+            { tenant_id: tenantId, customer_id: customerId, channel },
             { onConflict: "tenant_id,customer_id,channel", ignoreDuplicates: true },
           )
           .select("id"),
@@ -72,7 +83,7 @@ export function conversationStore(client: Db): ConversationStore {
           .select("id")
           .eq("tenant_id", tenantId)
           .eq("customer_id", customerId)
-          .eq("channel", "whatsapp")
+          .eq("channel", channel)
           .single(),
       ) as { id: string };
       return row.id;
@@ -120,6 +131,26 @@ export function conversationStore(client: Db): ConversationStore {
       ) as unknown[];
       return claimed.length === 1;
     },
+
+    async renew(tenantId, conversationId, until) {
+      unwrap(
+        await client
+          .from("conversations")
+          .update({ processing_until: until.toISOString() })
+          .eq("tenant_id", tenantId)
+          .eq("id", conversationId)
+          .select("id"),
+      );
+    },
+
+    async conversationStatus(tenantId, conversationId) {
+      const row = unwrap(
+        await client.from("conversations").select("status").eq("tenant_id", tenantId).eq("id", conversationId).single(),
+      ) as { status: ConversationStatus };
+      return row.status;
+    },
+
+    markHandoff: (tenantId, conversationId) => markConversationHandoff(client, tenantId, conversationId),
 
     async release(tenantId, conversationId) {
       unwrap(
@@ -183,7 +214,7 @@ export function conversationStore(client: Db): ConversationStore {
       );
     },
 
-    async saveReply(tenantId, conversationId, text, providerMessageId) {
+    async saveReply(tenantId, conversationId, text, providerMessageId, toolCalls) {
       unwrap(
         await client
           .from("messages")
@@ -193,6 +224,7 @@ export function conversationStore(client: Db): ConversationStore {
             role: "assistant",
             content: text,
             provider_message_id: providerMessageId,
+            tool_calls: toolCalls.length > 0 ? toolCalls : null,
           })
           .select("id"),
       );
