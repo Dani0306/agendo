@@ -6,21 +6,37 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "db:smoke": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/db-smoke.ts",
+    "seed": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/seed.ts",
+    "db:race": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/db-race.ts",
+    "agent:smoke": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/agent-smoke.ts"
   },
   "dependencies": {
+    "@ai-sdk/openai": "4.0.111",
+    "@supabase/supabase-js": "2.119.0",
+    "ai": "7.0.165",
     "next": "16.4.5",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "server-only": "0.0.1",
+    "zod": "4.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "1.65.0",
     "@tailwindcss/turbopack": "^4",
-    "@types/node": "^20",
+    "@types/node": "24.19.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.4.5",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "tsx": "4.23.15",
+    "typescript": "^5",
+    "vitest": "5.1.0"
   }
 }

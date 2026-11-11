@@ -91,25 +91,27 @@ Phases are gated by their exit checks, not by the calendar: a phase starts only 
 **Phase 0: Decisions**
 
 - [x] T01 Choose the business type (open decision 1); write the synthetic tenant in Spanish (`scripts/seed/tenant-fisio-demo.json`)
-- [ ] T02 VERIFY WhatsApp window and template rules, Twilio sandbox limits, Claude model IDs and prices (✋ owner checks the Meta page by hand) (read 8 Nov, see "Platform facts"; waiting on the owner's check of Meta policy section 3)
+- [ ] T02 VERIFY WhatsApp window and template rules, Twilio sandbox limits, OpenAI model IDs and prices (✋ owner checks the Meta page by hand) (read 8 Nov, see "Platform facts"; waiting on the owner's check of Meta policy section 3)
 
-**Phase 1: Foundation.** Exit: a message sent from WhatsApp is stored in Postgres and gets a reply.
+**Phase 1: Foundation.** Exit: a message sent from WhatsApp is stored in Postgres and gets a reply. **Met on the web chat and in the database; open for free-text delivery over WhatsApp** (owner decision, 10 Nov: the trial cannot send it, and upgrading waits for a client or the demo video).
 
-- [ ] T03 📝 Migration: schema `agendo`, tables, RLS, grants, schema exposed
-- [ ] T04 `lib/db` + cross-tenant RLS test + grant smoke test
-- [ ] T05 `lib/cost` dated pricing table and `lib/models.ts`
-- [ ] T06 Model-call wrapper writing `model_calls`
-- [ ] T07 `lib/pii`: keyed phone hashing and redaction
-- [ ] T08 📝 ✋ Twilio sandbox + webhook (signature, dedupe, tenant lookup, ordering)
-- [ ] T09 Spanish system prompt + consent line
+- [x] T03 📝 Migration: schema `agendo`, tables, RLS, grants, schema exposed (applied to the lab project 8 Nov; isolation test passes there)
+- [x] T04 `lib/db` + cross-tenant RLS test + grant smoke test
+- [x] T05 `lib/cost` dated pricing table and `lib/models.ts`
+- [x] T06 Model-call wrapper writing `model_calls`
+- [x] T07 `lib/pii`: keyed phone hashing and redaction
+- [x] T08 📝 ✋ Twilio sandbox + webhook (signature, dedupe, tenant lookup, ordering) (inbound proven live; outbound template proven; WhatsApp free-text replies are blocked by the Twilio trial, see Platform facts)
+- [x] T09 Spanish system prompt + explicit consent before the first model call (consent proven live on the web chat; the agent ran on the real model in T13)
 
 **Phase 2: Booking core.** Exit: a customer can book, reschedule and cancel in both channels, and the database rejects a conflicting slot.
 
-- [ ] T10 Exclusion constraint + overlapping-insert test
-- [ ] T11 Availability maths and timezone handling (injected clock, a DST zone in tests)
-- [ ] T12 📝 Booking tools with Zod arguments and server-side tenant scoping
-- [ ] T13 Tool loop with step limit and timeout
-- [ ] T14 📝 Web chat demo on the same core + Playwright test
+- [x] T10 Exclusion constraint + overlapping-insert test
+- [x] T11 Availability maths and timezone handling (injected clock, a DST zone in tests)
+- [x] T12 📝 Booking tools with Zod arguments and server-side tenant scoping
+- [x] T13 Tool loop with step limit and timeout
+- [x] T14 📝 Web chat demo on the same core + Playwright test
+
+Phase 2 exit: met on the web chat, **open on WhatsApp** until the Twilio account can send free text (started early by owner decision, 9 Nov).
 
 **Phase 3: Cost control and reminders.** Exit: reminders send on schedule, an over-budget tenant is blocked, and the cache saving is a recorded number.
 
@@ -192,7 +194,7 @@ How to work (the prompt-and-approve loop, teaching rule, verifying against docs,
 - **Customer messages and tool results are untrusted data**, never instructions.
 - **Budget and rate-limit checks run before each model call**, and failed calls refund the budget (Classly's credit pattern).
 - **FAQ in a cached system prompt, not RAG** (see "Why no RAG here").
-- **Primary model `claude-haiku-5-5`** with prompt caching on the per-tenant system prompt. ID and price confirmed on Anthropic's pages, 8 Nov 2026.
+- **OpenAI is the only model provider** (owner decision, 8 Nov 2026: only an OpenAI key is available). Primary model `gpt-6-luna` with prompt caching on the per-tenant system prompt. ID and price read on OpenAI's pricing page, 8 Nov 2026. The earlier Anthropic plan was dropped, along with `@ai-sdk/anthropic`.
 - **Development messaging:** Twilio WhatsApp Sandbox. A real WhatsApp Business number only if a client pays, and the business pays the messaging fees.
 - **Supabase:** the shared lab project, schema `agendo`.
 - **Degradation chain:** primary model → fallback model → static button menu → "a person will reply soon".
@@ -203,7 +205,7 @@ How to work (the prompt-and-approve loop, teaching rule, verifying against docs,
 Record the answer, the run or source that supports it, and the date when closed.
 
 1. **Which business type to model first. Decided 8 Nov 2026 (T01, owner): home healthcare and outpatient clinics (physical therapy, chiropractic, dental).** The recommendation was a barbershop or salon; the owner chose health, which brings the "Health-sector rules" below. **First synthetic tenant (owner, 8 Nov): an outpatient physical therapy clinic, Fisio Aurora (demo).** Home visits wait until after the minimum is deployed.
-2. **Fallback model.** The same provider's stronger model (candidate `claude-sonnet-5-5`), or a second provider. A second provider survives a provider-wide outage, which is the case the chaos test models; a same-provider fallback is simpler but shares that failure. Decide from measured failure and cost numbers in Phase 4 (T20).
+2. **Fallback model.** With one provider the candidate is `gpt-6.1-sol`. It survives a model-specific failure but not an OpenAI-wide outage, so the chain's later steps (button menu, "a person will reply soon") carry that case, and the chaos test should model it. A second provider needs a key the owner doesn't have. Decide from measured failure and cost numbers in Phase 4 (T20).
 3. **Production messaging provider.** Twilio or Meta Cloud API directly. Decide only if a client is lined up.
 4. **Default monthly budget per tenant and rate-limit thresholds.** Tune from the measured cost per conversation (Phase 3 and the first eval run).
 5. **Whether to submit a reminder template for approval early.** Read 8 Nov: the Sandbox has a built-in Appointment Reminders template and doesn't support custom templates, so development needs no approval. Recommendation: use the Sandbox template through Phase 3 and submit a custom one only when a client and a registered sender exist. Submitting needs the owner's approval.
@@ -220,7 +222,7 @@ Added 8 Nov 2026, because the first tenant is a health business. These are read 
 - **Collect the minimum.** Agendo books appointments; it isn't a clinical record. It never asks for symptoms, diagnoses, medication or ID numbers. A patient may volunteer them anyway, so those messages count as health data for retention, logs and traces.
 - **No clinical advice.** The assistant never diagnoses, suggests treatment or comments on symptoms. Possible emergencies get a static message with no model call and a handoff. Which number to give is VERIFY: the sources read only confirm line 123 for Bogotá.
 - **Reminders don't name the treatment.** A WhatsApp preview is visible on a lock screen, so a reminder says "tu cita" with date, time and clinic.
-- **Data goes to US vendors** (Anthropic, Twilio, Vercel, Langfuse by region). Ley 1581 art. 26 restricts transfers to countries without adequate protection. The SIC's list included the US since Circular 005 de 2017, and an August 2026 press report still lists it; confirm the current list before a real clinic.
+- **Data goes to US vendors** (OpenAI, Twilio, Vercel, Langfuse by region). Ley 1581 art. 26 restricts transfers to countries without adequate protection. The SIC's list included the US since Circular 005 de 2017, and an August 2026 press report still lists it; confirm the current list before a real clinic.
 - **WhatsApp policy.** Meta's policy (updated 23 Sep 2026) section 3 restricts sending or requesting health information. A search excerpt shows this applies where regulations prohibit sending it to systems without heightened safeguards, but the page read on 8 Nov returned a shortened quote. ✋ The owner reads section 3 in full; this is the one finding that could block the use case in production. Section 2 requires a clear path to a human, so `handoff_to_human` is mandatory.
 - **HIPAA** applies only if a US clinic or US patients are ever involved. Langfuse's Hobby tier doesn't offer it.
 
@@ -230,15 +232,15 @@ Sources are copies of the law and search excerpts, read 8 Nov, not read in full:
 
 Read from vendor pages on 8 Nov 2026 (T02).
 
-- **Models:** `claude-haiku-5-5` and `claude-sonnet-5-5` are valid pinned IDs; neither retires before October and September 2027 respectively.
-- **Prompt caching:** minimum 512 tokens on both models; below it nothing is cached and no error is returned. 5-minute writes cost 1.25×, 1-hour writes 2×. Reads cost 0.1× on Haiku 5.5 and 0.05× on Sonnet 5.5. Up to 4 breakpoints. Usage fields: `cache_creation_input_tokens`, `cache_read_input_tokens`.
+- **Models:** `gpt-6-luna` (primary) and `gpt-6.1-sol` (fallback candidate), read on OpenAI's pricing page 8 Nov 2026.
+- **Prompt caching (OpenAI):** minimum 1,024 tokens for GPT-5.6 and later. Writes cost 1.25× input (30-minute default; 12-hour lifetime costs more) and reads 0.1× (0.05× on GPT-6.1 Sol and Terra). Usage fields: `usage.input_tokens_details.cached_tokens` and `cache_write_tokens`. The pricing page itself states no minimum, so re-check the caching guide when T18 measures.
 - **24-hour window:** it runs 24 hours from the customer's last inbound message. Outside it, only approved templates can be sent. Inside it, plain text and media are free-form, but **buttons and lists need a template**.
 - **Sandbox:** membership expires **3 days after joining**. One message every 3 seconds. Only joined numbers receive messages. Three built-in templates (Appointment Reminders, Order Notifications, Verification Codes), no custom templates. Whether buttons work there isn't stated, so the button menu starts as numbered text.
 - **Template category:** templates that don't come from an explicit user request will likely be categorised as Marketing, so the customer should ask for or agree to reminders.
 - **Webhook:** Twilio's defaults are 5 s to connect, 15 s read, 15 s total, 1 retry on connection failure. The agent loop can outlast that, so the webhook should acknowledge first and send the reply through the API. The T08 prompt decides.
+- **Trial accounts refuse free-text API sends** (measured 9 Nov 2026): a REST send with `Body` returned HTTP 400, code 21654, and the console's own API example sends only a `ContentSid` template. The Phase 1 webhook therefore returns static replies inline as TwiML. Twilio's trial page confirms it: "Custom message bodies, email content, and WhatsApp templates aren't available during trial" (read 10 Nov 2026). A TwiML reply was generated and returned, but Twilio's log shows no outbound message. The built-in Appointment Reminders template does send (owner proved it 10 Nov), so reminders (T15) can be tested on the trial. T13 keeps replies inline under a 12 s agent deadline. Upgrading adds a profile, an address, a starting balance and payment details (the page states no minimum) and waits for a client or the demo video.
 - **Signature:** computed over the exact configured URL plus all form parameters sorted by name. Leave any `#` override fragment out when validating.
 - **Vercel Hobby:** non-commercial only. Commercial covers financial gain of anyone involved, including receiving payment to create or host the site. Check with Vercel Support or move to Pro before a paying client.
-- **Haiku data residency:** `inference_geo: "us"` costs 1.1×; the default is global.
 
 ## Cost model
 
@@ -246,10 +248,9 @@ Read from vendor pages on the dates shown. The dated table in `lib/cost` is the 
 
 | Item | Price or limit | Read on |
 | ---- | -------------- | ------- |
-| `claude-haiku-5-5`, prompts ≤ 100k tokens, per 1M | input $0.10 · output $0.50 | 8 Nov 2026 |
-| `claude-haiku-5-5` cache, prompts ≤ 100k tokens, per 1M | 5m write $0.125 · 1h write $0.20 · read $0.01 | 8 Nov 2026 |
-| `claude-haiku-5-5`, prompts > 100k tokens, per 1M (won't apply here) | input $0.50 · output $2.50 | 8 Nov 2026 |
-| `claude-sonnet-5-5` (fallback candidate, open decision 2), per 1M | input $2 · 5m write $2.50 · 1h write $4 · read $0.10 · output $10 | 8 Nov 2026 |
+| `gpt-6-luna`, prompts ≤ 272k tokens, per 1M | input $0.10 · cached input $0.01 · cache write (30 min) $0.125 · output $0.50 | 8 Nov 2026 |
+| `gpt-6-luna`, prompts > 272k tokens, per 1M (won't apply here) | input $0.20 · cached $0.02 · write $0.25 · output $0.75 | 8 Nov 2026 |
+| `gpt-6.1-sol` (fallback candidate, open decision 2), per 1M | input $2.00 · cached $0.10 · write (30 min) $2.50 · output $10.00 (above 272k: $4 / $0.20 / $5 / $15) | 8 Nov 2026 |
 | Twilio WhatsApp Sandbox | VERIFY: the pages read don't state its price | — |
 | WhatsApp in production (paid by the business), Twilio fee | $0.005 per message, inbound or outbound; $0.001 per failed message ("current as of September 2026") | 8 Nov 2026 |
 | WhatsApp in production, Meta fee | calculator shows $0.0034 per utility template outside the window; no Meta charge for utility inside it. VERIFY the Colombia rate card | 8 Nov 2026 |
@@ -270,10 +271,10 @@ Link-checked by the owner before 7 Nov 2026. Agents still fetch the page before 
 - Supabase Edge Functions — https://supabase.com/docs/guides/functions
 - Row-level security — https://supabase.com/docs/guides/database/postgres/row-level-security
 - Upstash Redis — https://upstash.com/docs/redis/overall/getstarted
-- Prompt caching — https://platform.claude.com/docs/en/build-with-claude/prompt-caching
-- Rate limits — https://platform.claude.com/docs/en/api/rate-limits
-- Tool use — https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview
-- Pricing — https://platform.claude.com/docs/en/about-claude/pricing
+- OpenAI prompt caching — https://developers.openai.com/api/docs/guides/prompt-caching
+- OpenAI pricing — https://developers.openai.com/api/docs/pricing
+- OpenAI models — https://developers.openai.com/api/docs/models
+- OpenAI rate limits and tool use: find the pages under https://developers.openai.com/api/docs when T16 and T12 need them
 - AI SDK tools — https://ai-sdk.dev/docs/ai-sdk-core/tools-and-tool-calling
 - AI SDK telemetry — https://ai-sdk.dev/docs/ai-sdk-core/telemetry
 - Streaming on Vercel — https://vercel.com/docs/functions/streaming
@@ -290,3 +291,7 @@ Keep this current. Append one line per working session: date, what shipped, the 
 
 - **2026-11-07** — Phase 0, context files written, nothing built. Next.js 16.4.5 scaffolded at the repo root (TypeScript, Tailwind, ESLint, App Router, `src/`); `AGENTS.md` and `CLAUDE.md` written from the project brief, using CiteDesk's files as the template. $0 spent. Next: T01 (business type and synthetic tenant), then T02 (verify WhatsApp rules, model IDs and prices).
 - **2026-11-08** — Phase 0 in progress. T01: owner chose home healthcare and outpatient clinics over the recommended barbershop, so health-sector rules were added (explicit consent first, data minimisation, no clinical advice, neutral reminders). T02: model IDs, prices and platform limits read from vendor pages and recorded. Haiku 5.5 is $0.10/$0.50 per 1M and caches from 512 tokens; the Sandbox expires after 3 days and offers no custom templates; buttons need templates; Twilio's webhook timeout is 15 s. T01 closed with the synthetic tenant Fisio Aurora (demo), an outpatient physio clinic; home visits parked. No code; $0 spent. Next: owner reads Meta policy section 3 to close T02, then T03.
+- **2026-11-08 (Phase 1, prompt 001)** — T03–T09 built on four stacked local branches. Thirteen `agendo` tables with composite tenant foreign keys, member-only read policies and a column grant hiding phone data; the migration and isolation script pass on PGlite, and the script caught a deliberately broken policy. Dated price table, `recordCall`, keyed phone hash, AES-256-GCM phone storage, signed webhook, consent gate (nothing stored before consent but the literal answer), and a per-conversation lease. 103 tests; forged and unsigned POSTs get 403 on the built route. No model calls; $0 spent. Next: owner applies the migration, joins the Sandbox and runs the exit check.
+- **2026-11-08 (OpenAI only)** — Owner confirmed Agendo uses only an OpenAI key. Dropped `@ai-sdk/anthropic` for `@ai-sdk/openai` 4.0.111; `gpt-6-luna` is primary and `gpt-6.1-sol` the fallback candidate. Pricing table rewritten from OpenAI's page (272k long-prompt tier instead of 100k); prompt cache minimum is 1,024 tokens, not 512. The fallback now shares the primary's provider, so the chaos test must cover an OpenAI-wide failure. 103 tests pass. A real Supabase key had been pasted into `.env.example`; it never reached a commit and now lives in `.env.local`. $0 spent.
+- **2026-11-09 (Phase 2, prompt 002)** — T10–T14 built on three stacked local branches, started before Phase 1's exit check by owner decision. Exclusion constraint live on the lab project (10 parallel inserts: 1 accepted, 9 `23P01`); availability maths with DST tests; six tools scoped by the server; hand-written tool loop (5 calls, 12 s or 25 s deadline, one write per turn, confirmations built from the row); emergency check before any model call; web chat on the same core. Live smoke on `gpt-6-luna`: booked, rescheduled and cancelled for $0.000676 in 7 calls, median 2.0 s. 215 unit and 8 Playwright tests pass. WhatsApp delivery is still unproven (Twilio trial). Next: settle Twilio, then Phase 3.
+- **2026-11-10 (Phase 1 closed on the web chat)** — Owner ran the database check, sent the Appointment Reminders template to their own phone (arrived) and completed consent and a reply on the web chat. Twilio's trial page confirms trial accounts can't send custom message bodies, so free-text WhatsApp replies stay unproven until the account is upgraded. T03–T09 ticked with that caveat. $0 spent. Next: Phase 3 (T15 reminders on the built-in template, T16 rate limits, T17 budgets, T18 caching).
