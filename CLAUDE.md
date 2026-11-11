@@ -93,15 +93,15 @@ Phases are gated by their exit checks, not by the calendar: a phase starts only 
 - [x] T01 Choose the business type (open decision 1); write the synthetic tenant in Spanish (`scripts/seed/tenant-fisio-demo.json`)
 - [ ] T02 VERIFY WhatsApp window and template rules, Twilio sandbox limits, OpenAI model IDs and prices (✋ owner checks the Meta page by hand) (read 8 Nov, see "Platform facts"; waiting on the owner's check of Meta policy section 3)
 
-**Phase 1: Foundation.** Exit: a message sent from WhatsApp is stored in Postgres and gets a reply.
+**Phase 1: Foundation.** Exit: a message sent from WhatsApp is stored in Postgres and gets a reply. **Met on the web chat and in the database; open for free-text delivery over WhatsApp** (owner decision, 10 Nov: the trial cannot send it, and upgrading waits for a client or the demo video).
 
-- [ ] T03 📝 Migration: schema `agendo`, tables, RLS, grants, schema exposed (written and tested on a throwaway Postgres; not applied to the lab project yet)
-- [ ] T04 `lib/db` + cross-tenant RLS test + grant smoke test (built; the live `db:smoke` waits on T03)
+- [x] T03 📝 Migration: schema `agendo`, tables, RLS, grants, schema exposed (applied to the lab project 8 Nov; isolation test passes there)
+- [x] T04 `lib/db` + cross-tenant RLS test + grant smoke test
 - [x] T05 `lib/cost` dated pricing table and `lib/models.ts`
 - [x] T06 Model-call wrapper writing `model_calls`
 - [x] T07 `lib/pii`: keyed phone hashing and redaction
-- [ ] T08 📝 ✋ Twilio sandbox + webhook (signature, dedupe, tenant lookup, ordering) (built and unit-tested; the live test is the owner's)
-- [ ] T09 Spanish system prompt + explicit consent before the first model call (built; the exit check is the owner's)
+- [x] T08 📝 ✋ Twilio sandbox + webhook (signature, dedupe, tenant lookup, ordering) (inbound proven live; outbound template proven; WhatsApp free-text replies are blocked by the Twilio trial, see Platform facts)
+- [x] T09 Spanish system prompt + explicit consent before the first model call (consent proven live on the web chat; the agent ran on the real model in T13)
 
 **Phase 2: Booking core.** Exit: a customer can book, reschedule and cancel in both channels, and the database rejects a conflicting slot.
 
@@ -111,7 +111,7 @@ Phases are gated by their exit checks, not by the calendar: a phase starts only 
 - [x] T13 Tool loop with step limit and timeout
 - [x] T14 📝 Web chat demo on the same core + Playwright test
 
-Phase 2 exit: met on the web chat, **open on WhatsApp** until Twilio delivers a reply (started early by owner decision, 9 Nov).
+Phase 2 exit: met on the web chat, **open on WhatsApp** until the Twilio account can send free text (started early by owner decision, 9 Nov).
 
 **Phase 3: Cost control and reminders.** Exit: reminders send on schedule, an over-budget tenant is blocked, and the cache saving is a recorded number.
 
@@ -238,7 +238,7 @@ Read from vendor pages on 8 Nov 2026 (T02).
 - **Sandbox:** membership expires **3 days after joining**. One message every 3 seconds. Only joined numbers receive messages. Three built-in templates (Appointment Reminders, Order Notifications, Verification Codes), no custom templates. Whether buttons work there isn't stated, so the button menu starts as numbered text.
 - **Template category:** templates that don't come from an explicit user request will likely be categorised as Marketing, so the customer should ask for or agree to reminders.
 - **Webhook:** Twilio's defaults are 5 s to connect, 15 s read, 15 s total, 1 retry on connection failure. The agent loop can outlast that, so the webhook should acknowledge first and send the reply through the API. The T08 prompt decides.
-- **Trial accounts refuse free-text API sends** (measured 9 Nov 2026): a REST send with `Body` returned HTTP 400, code 21654, and the console's own API example sends only a `ContentSid` template. The Phase 1 webhook therefore returns static replies inline as TwiML. A TwiML reply was generated and returned, but Twilio's log shows no outbound message, so delivery is unconfirmed. T13 keeps replies inline under a 12 s agent deadline. The owner decides whether to upgrade the account, since that spends money.
+- **Trial accounts refuse free-text API sends** (measured 9 Nov 2026): a REST send with `Body` returned HTTP 400, code 21654, and the console's own API example sends only a `ContentSid` template. The Phase 1 webhook therefore returns static replies inline as TwiML. Twilio's trial page confirms it: "Custom message bodies, email content, and WhatsApp templates aren't available during trial" (read 10 Nov 2026). A TwiML reply was generated and returned, but Twilio's log shows no outbound message. The built-in Appointment Reminders template does send (owner proved it 10 Nov), so reminders (T15) can be tested on the trial. T13 keeps replies inline under a 12 s agent deadline. Upgrading adds a profile, an address, a starting balance and payment details (the page states no minimum) and waits for a client or the demo video.
 - **Signature:** computed over the exact configured URL plus all form parameters sorted by name. Leave any `#` override fragment out when validating.
 - **Vercel Hobby:** non-commercial only. Commercial covers financial gain of anyone involved, including receiving payment to create or host the site. Check with Vercel Support or move to Pro before a paying client.
 
@@ -294,3 +294,4 @@ Keep this current. Append one line per working session: date, what shipped, the 
 - **2026-11-08 (Phase 1, prompt 001)** — T03–T09 built on four stacked local branches. Thirteen `agendo` tables with composite tenant foreign keys, member-only read policies and a column grant hiding phone data; the migration and isolation script pass on PGlite, and the script caught a deliberately broken policy. Dated price table, `recordCall`, keyed phone hash, AES-256-GCM phone storage, signed webhook, consent gate (nothing stored before consent but the literal answer), and a per-conversation lease. 103 tests; forged and unsigned POSTs get 403 on the built route. No model calls; $0 spent. Next: owner applies the migration, joins the Sandbox and runs the exit check.
 - **2026-11-08 (OpenAI only)** — Owner confirmed Agendo uses only an OpenAI key. Dropped `@ai-sdk/anthropic` for `@ai-sdk/openai` 4.0.111; `gpt-6-luna` is primary and `gpt-6.1-sol` the fallback candidate. Pricing table rewritten from OpenAI's page (272k long-prompt tier instead of 100k); prompt cache minimum is 1,024 tokens, not 512. The fallback now shares the primary's provider, so the chaos test must cover an OpenAI-wide failure. 103 tests pass. A real Supabase key had been pasted into `.env.example`; it never reached a commit and now lives in `.env.local`. $0 spent.
 - **2026-11-09 (Phase 2, prompt 002)** — T10–T14 built on three stacked local branches, started before Phase 1's exit check by owner decision. Exclusion constraint live on the lab project (10 parallel inserts: 1 accepted, 9 `23P01`); availability maths with DST tests; six tools scoped by the server; hand-written tool loop (5 calls, 12 s or 25 s deadline, one write per turn, confirmations built from the row); emergency check before any model call; web chat on the same core. Live smoke on `gpt-6-luna`: booked, rescheduled and cancelled for $0.000676 in 7 calls, median 2.0 s. 215 unit and 8 Playwright tests pass. WhatsApp delivery is still unproven (Twilio trial). Next: settle Twilio, then Phase 3.
+- **2026-11-10 (Phase 1 closed on the web chat)** — Owner ran the database check, sent the Appointment Reminders template to their own phone (arrived) and completed consent and a reply on the web chat. Twilio's trial page confirms trial accounts can't send custom message bodies, so free-text WhatsApp replies stay unproven until the account is upgraded. T03–T09 ticked with that caveat. $0 spent. Next: Phase 3 (T15 reminders on the built-in template, T16 rate limits, T17 budgets, T18 caching).
