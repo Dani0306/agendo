@@ -6,6 +6,7 @@ import { PRIMARY_MODEL } from "@/lib/models";
 import { fakeStore } from "@/lib/tools/fake-store";
 import { type AgentDeps, type AgentTurn, MAX_MODEL_CALLS, runAgent } from "./loop";
 import type { Budget, Reservation } from "@/lib/guard/budget";
+import type { ResponseCache } from "@/lib/guard/response-cache";
 import { OVER_BUDGET_TEXT, PERSON_SOON_TEXT } from "./reply";
 
 const NOW = new Date("2026-11-09T12:00:00Z");
@@ -53,6 +54,13 @@ function scripted(steps: Step[]) {
 let rows: ModelCallRow[];
 let log: ReturnType<typeof vi.fn<AgentDeps["log"]>>;
 let fake: ReturnType<typeof fakeStore>;
+let stored: Map<string, string>;
+const cache: ResponseCache = {
+  get: async (key) => stored.get(key) ?? null,
+  set: async (key, text) => {
+    stored.set(key, text);
+  },
+};
 let ledger: { reserved: number[]; settled: number[]; refunded: number[]; allow: number };
 
 /** Records every step and allows `ledger.allow` reservations. */
@@ -95,6 +103,7 @@ function deps(model: AgentDeps["model"], history: { role: "customer" | "assistan
       },
     },
     budget,
+    cache,
     now: () => NOW,
     log,
   };
@@ -107,6 +116,55 @@ beforeEach(() => {
   log = vi.fn<AgentDeps["log"]>();
   fake = fakeStore(schedule, services);
   ledger = { reserved: [], settled: [], refunded: [], allow: 100 };
+  stored = new Map();
+});
+
+describe("response cache", () => {
+  const question = "¿Dónde están ubicados?";
+  const afterConsent = [{ role: "customer" as const, content: "ACEPTO" }, { role: "assistant" as const, content: "Gracias por autorizar." }];
+
+  it("answers a repeated first question from the cache with no model call", async () => {
+    const first = scripted([{ text: "Calle Ficticia 12." }]);
+    await runAgent(deps(first, afterConsent), { ...turn, text: question });
+
+    const second = scripted([{ text: "otra respuesta" }]);
+    const reply = await runAgent(deps(second, afterConsent), { ...turn, text: "donde estan ubicados" });
+
+    expect(second.doGenerateCalls).toHaveLength(0);
+    expect(reply).toMatchObject({ text: "Calle Ficticia 12.", trace: { model: null, tools: [{ name: "faq_cache", status: "hit" }] } });
+  });
+
+  it("doesn't use the cache once the conversation has context", async () => {
+    await runAgent(deps(scripted([{ text: "Calle Ficticia 12." }]), afterConsent), { ...turn, text: question });
+
+    const model = scripted([{ text: "Depende de lo que hablamos." }]);
+    const history = [...afterConsent, { role: "customer" as const, content: "Soy de Envigado" }];
+    await runAgent(deps(model, history), { ...turn, text: question });
+    expect(model.doGenerateCalls).toHaveLength(1);
+  });
+
+  it("never stores an answer that used a tool", async () => {
+    const model = scripted([{ tool: "my_bookings", input: {} }, { text: "No tienes citas." }]);
+    await runAgent(deps(model, afterConsent), { ...turn, text: "¿qué tengo pendiente esta semana?" });
+    expect(stored.size).toBe(0);
+  });
+
+  it("never stores a booking question", async () => {
+    await runAgent(deps(scripted([{ text: "¿Qué servicio quieres?" }]), afterConsent), { ...turn, text: "Quiero agendar una cita" });
+    expect(stored.size).toBe(0);
+  });
+});
+
+describe("prompt caching", () => {
+  it("leaves caching implicit by default and can switch it off for the A/B", async () => {
+    const on = scripted([{ text: "ok" }]);
+    await runAgent(deps(on), turn);
+    expect(JSON.stringify(on.doGenerateCalls[0]!.providerOptions)).not.toContain("promptCacheOptions");
+
+    const off = scripted([{ text: "ok" }]);
+    await runAgent({ ...deps(off), promptCache: "off" }, turn);
+    expect(off.doGenerateCalls[0]!.providerOptions).toMatchObject({ openai: { promptCacheOptions: { mode: "explicit" } } });
+  });
 });
 
 describe("budget", () => {

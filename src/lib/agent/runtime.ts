@@ -11,6 +11,7 @@ import { conversationStore } from "@/lib/db/conversations";
 import { DEMO_DAILY_CAP_USD } from "@/lib/guard/budget";
 import { allowAll, CUSTOMER_WINDOWS, type RateLimiter, upstashLimiter, WEB_IP_WINDOWS } from "@/lib/guard/rate-limit";
 import { redisFromEnv } from "@/lib/guard/redis";
+import { noCache, type ResponseCache, upstashCache } from "@/lib/guard/response-cache";
 import { PRIMARY_MODEL } from "@/lib/models";
 import { loadPiiSecrets } from "@/lib/pii/phone";
 import type { InboundDeps } from "./handle-inbound";
@@ -68,6 +69,11 @@ function limiterFor(prefix: string, windows: typeof CUSTOMER_WINDOWS): RateLimit
   return allowAll;
 }
 
+function responseCache(): ResponseCache {
+  const redis = redisFromEnv();
+  return redis ? upstashCache(redis, (error) => log("cache.redis_error", { error: String(error).slice(0, 200) })) : noCache;
+}
+
 /** Keyed by a hash, so Redis never holds a visitor's IP address. */
 export function webIpLimiter(): { check(ip: string): ReturnType<RateLimiter["check"]> } {
   const limiter = limiterFor("ip", WEB_IP_WINDOWS);
@@ -76,7 +82,10 @@ export function webIpLimiter(): { check(ip: string): ReturnType<RateLimiter["che
 }
 
 /** Wires the real database, model, guards and secrets into the core. */
-export function inboundDeps(deadlineMs: number, options: { demoCap?: boolean } = {}): Omit<InboundDeps, "send"> {
+export function inboundDeps(
+  deadlineMs: number,
+  options: { demoCap?: boolean; promptCache?: AgentDeps["promptCache"]; responseCache?: boolean } = {},
+): Omit<InboundDeps, "send"> {
   const env = CoreEnvSchema.parse(process.env);
   const client = db();
   const now = () => new Date();
@@ -88,6 +97,8 @@ export function inboundDeps(deadlineMs: number, options: { demoCap?: boolean } =
     data: agentData(client),
     record: { sink: dbSink(client) },
     budget: postgresBudget(client),
+    cache: options.responseCache === false ? noCache : responseCache(),
+    promptCache: options.promptCache,
     now,
     log,
   };

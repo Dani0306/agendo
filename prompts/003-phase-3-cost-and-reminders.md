@@ -1,6 +1,6 @@
 # 003 — Phase 3: Cost control and reminders (T15–T18)
 
-**Status:** approved
+**Status:** done except the live reminder send, which waits on the owner's secrets
 **Branches:** `feat/t15-reminders` → `feat/t16-t17-guards` → `feat/t18-caching`, stacked on `main`
 **Phase:** 3 (see `CLAUDE.md` → Workflow)
 
@@ -163,12 +163,58 @@ The fallback model and the menu (T20), retries (T19), output rules (T23) and a d
 
 ## Manual test steps
 
-Filled in with exact steps when the work is done. Your hand steps:
-1. Create a free Upstash Redis database and paste its two values into `.env.local`.
-2. Enter six Edge Function secrets in the dashboard when prompted.
-3. On WhatsApp, send `ACEPTO` and a booking request for tomorrow. Replies won't arrive on the trial, but the booking is still stored.
-4. Watch for the reminder.
+**A. Edge Function secrets (needed for reminders).** Supabase dashboard → Edge Functions → Secrets. Add these six:
+
+| Name | Value |
+| ---- | ----- |
+| `TWILIO_ACCOUNT_SID` | same as `.env.local` |
+| `TWILIO_AUTH_TOKEN` | same as `.env.local` (the rotated one) |
+| `TWILIO_WHATSAPP_FROM` | `whatsapp:+17372508034` |
+| `REMINDER_CONTENT_SID` | `HXfe5ab5f00277942d4d4200328b4d403c` (the Appointment Reminders template from the Try out page) |
+| `PHONE_ENCRYPTION_KEY` | same as `.env.local` |
+| `REMINDER_CRON_TOKEN` | Integrations → Vault → `agendo_reminder_token` → reveal and copy |
+
+**B. A reminder on your phone.**
+1. Rejoin the sandbox if it has been 3 days: send the `join` words to +1 737 250 8034.
+2. Run `npm run dev` and the tunnel, with the Twilio webhook set as before.
+3. On WhatsApp, send `ACEPTO`, then `Quiero una valoración inicial mañana a las 10 de la mañana`. The trial won't deliver the replies, but the booking is stored.
+4. Within 10 minutes the reminder template should arrive.
+5. Check the row: `select status, error, provider_message_id is not null as has_sid from agendo.reminders;` Expect `sent`. A `failed` with a `twilio_…` code means the template's variables differ from what I guessed: send me the code.
+
+**C. Upstash (needed for rate limits and the FAQ cache).**
+1. Create a free Redis database at console.upstash.com.
+2. Paste its REST URL and token into `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` in `.env.local`, then restart `npm run dev`.
+3. In the web chat, accept consent and send 11 messages within a minute. The 11th shows "Límite de mensajes alcanzado".
+4. Restart the chat, accept again and ask "¿Dónde están ubicados?". Restart and ask the same again. The second answer shows `faq_cache → hit` and "Sin llamada al modelo".
 
 ## Results
 
-Filled in after the work.
+**Numbers (12 Nov 2026, lab project).**
+- **Reminder claiming:** the rolled-back SQL test passes on the lab project. Only the due booking of a consented WhatsApp customer is claimed, a second run claims nothing, a rescheduled booking is claimed again, and the `authenticated` and `anon` roles are refused.
+- **Overlapping claims:** in `db:reminder-race`, 4 overlapping claims over 6 due bookings returned 6 reminders, 6 distinct.
+- **Edge Function:** deployed with `verify_jwt` off. It answers 401 without the token or with a wrong one. The cron job `agendo-send-reminders` runs every 10 minutes. Until the secrets exist, every call gets 401, so nothing can be sent early.
+- **Budget:** the rolled-back SQL test passes. In `db:budget-check`, 10 parallel $0.30 reservations against $1.00 let 3 through and held $0.90. A $0 tenant got the over-budget reply and no `model_calls` row, end to end.
+- **Prompt-caching A/B** (`evals/runs/2026-11-12-cache-ab.json`):
+
+  | Arm | Calls | Cost | Cost per call | Cache reads | Median latency |
+  | --- | ----- | ---- | ------------- | ----------- | -------------- |
+  | Off | 7 | $0.00182780 | $0.00026111 | 0% | 2,039 ms |
+  | On | 7 | $0.00065569 | $0.00009367 | 82.5% of prompt tokens | 1,363 ms |
+
+  The saving is **64.1% per call**, and 64.2% against pricing the same calls uncached. The second figure accounts for the write premium: 2,926 write tokens at 1.25×. Both arms cost $0.0025 together, above the $0.0015 estimate.
+- **Checks:** 258 unit tests and 9 Playwright tests pass; typecheck, lint, build and `deno check` pass. The security advisor reports nothing.
+
+**What surprised me.**
+- A prompt the size of this one is far above the 1,024-token minimum: 16,853 prompt tokens over 7 calls. Inside one conversation, every call after the first reads the earlier calls' prefix, so caching pays off even within a single conversation.
+- Node and Deno format `es-CO` short dates identically ("mar, 10 de nov"), so a test could pin the reminder text.
+- The MCP tool that sets Edge Function secrets disconnected mid-session, so those six secrets are a manual step.
+
+**What changed from the plan.**
+- The budget functions got their own migration (`20261112130000_budget.sql`) on the T16–T17 branch, so each branch carries its own schema change.
+- The cron token is generated inside Vault and never passes through the agent. The owner copies it from the dashboard.
+- `model_spend_since` was added, so the demo cap is one SQL call instead of summing rows in the app.
+
+**Still open.**
+- A real reminder send (hand steps A and B). The template's variable layout is VERIFY until then.
+- Rate limits and the response cache are off until Upstash exists (hand step C).
+- The budget and cap values are starting values (open decision 4).

@@ -16,6 +16,7 @@
     "db:race": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/db-race.ts",
     "db:budget-check": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/budget-check.ts",
     "db:reminder-race": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/db-reminder-race.ts",
+    "cache:ab": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/cache-ab.ts",
     "agent:smoke": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/agent-smoke.ts"
   },
   "dependencies": {
