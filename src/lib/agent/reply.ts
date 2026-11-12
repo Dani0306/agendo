@@ -29,7 +29,7 @@ export const ReplySchema = z.object({
   text: z.string(),
   booking: BookingEvidenceSchema.optional(),
   alternatives: z.array(SlotOptionSchema).optional(),
-  degraded: z.enum(["handoff", "person_soon"]).optional(),
+  degraded: z.enum(["handoff", "person_soon", "rate_limited", "over_budget"]).optional(),
   trace: z.object({
     model: z.string().nullable(),
     tools: z.array(z.object({ name: z.string(), status: z.string() })),
@@ -39,6 +39,12 @@ export const ReplySchema = z.object({
 export type Reply = z.infer<typeof ReplySchema>;
 
 export const PERSON_SOON_TEXT = "Tuve un problema para responder. Una persona de la clínica te escribirá pronto.";
+
+export const RATE_LIMITED_TEXT = "Estás enviando mensajes muy rápido. Espera un momento y vuelve a escribir, por favor.";
+
+/** T20 replaces this with the button menu. */
+export const OVER_BUDGET_TEXT =
+  "En este momento no puedo responder automáticamente. Una persona de la clínica te escribirá pronto.";
 
 export const HANDOFF_TEXT = "Listo, le pasé tu conversación a una persona de la clínica. Te responderá pronto por este chat.";
 

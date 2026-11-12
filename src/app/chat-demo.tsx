@@ -55,6 +55,8 @@ function Evidence({ reply }: { reply: Reply }) {
 function degradedLabel(degraded: Reply["degraded"]): string | null {
   if (degraded === "handoff") return "Conversación transferida a una persona";
   if (degraded === "person_soon") return "Modo degradado: el asistente no pudo responder";
+  if (degraded === "rate_limited") return "Límite de mensajes alcanzado";
+  if (degraded === "over_budget") return "Presupuesto agotado: sin llamada al modelo";
   return null;
 }
 

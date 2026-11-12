@@ -17,7 +17,8 @@ import {
   LEASE_MS,
   receiveInbound,
 } from "./handle-inbound";
-import { EMERGENCY_TEXT, HANDOFF_ACK_TEXT, type Reply, staticReply } from "./reply";
+import { allowAll } from "@/lib/guard/rate-limit";
+import { EMERGENCY_TEXT, HANDOFF_ACK_TEXT, RATE_LIMITED_TEXT, type Reply, staticReply } from "./reply";
 
 const AGENT_TEXT = "Respuesta del agente";
 const TENANT = { id: "t1", name: "Fisio Aurora (demo)" };
@@ -128,6 +129,7 @@ beforeEach(() => {
     now: () => clock,
     send: vi.fn<InboundDeps["send"]>(async () => "SMout"),
     agent: vi.fn<InboundDeps["agent"]>(async () => staticReply(AGENT_TEXT)),
+    limiter: allowAll,
     log: vi.fn<InboundDeps["log"]>(),
   };
 });
@@ -244,6 +246,28 @@ describe("agent gate", () => {
     expect(deps.agent).not.toHaveBeenCalled();
     expect(store.replies.at(-1)).toBe(EMERGENCY_TEXT);
     expect(store.status).toBe("handoff");
+  });
+
+  it("answers statically when the customer is over the rate limit, keyed by customer", async () => {
+    await consented();
+    const keys: string[] = [];
+    deps.limiter = {
+      check: async (key) => {
+        keys.push(key);
+        return { ok: false, retryAfterMs: 1000 };
+      },
+    };
+    await deliver("quiero una cita");
+    expect(deps.agent).not.toHaveBeenCalled();
+    expect(store.replies.at(-1)).toBe(RATE_LIMITED_TEXT);
+    expect(keys).toEqual(["customer:c1"]);
+  });
+
+  it("never rate-limits an emergency", async () => {
+    await consented();
+    deps.limiter = { check: async () => ({ ok: false, retryAfterMs: 1000 }) };
+    await deliver("no puedo respirar");
+    expect(store.replies.at(-1)).toBe(EMERGENCY_TEXT);
   });
 
   it("keeps the agent silent during a handoff and still acknowledges", async () => {

@@ -1,6 +1,16 @@
 import { generateText, type LanguageModel, type ModelMessage, tool, type ToolSet } from "ai";
 import type { z } from "zod";
-import { recordCall, type RecordCallDeps } from "@/lib/calls/record-call";
+import { billedTokens, recordCall, type RecordCallDeps } from "@/lib/calls/record-call";
+import { callCostUsd } from "@/lib/cost/pricing";
+import { localToday } from "@/lib/booking/availability";
+import { type Budget, estimateCallUsd, MAX_OUTPUT_TOKENS } from "@/lib/guard/budget";
+import {
+  cacheKey,
+  isCacheableQuestion,
+  RESPONSE_TTL_SECONDS,
+  type ResponseCache,
+  tenantVersion,
+} from "@/lib/guard/response-cache";
 import { redactPhones } from "@/lib/pii/redact";
 import type { BookingStore } from "@/lib/tools/store";
 import {
@@ -12,8 +22,18 @@ import {
   TOOLS,
   usesWriteAttempt,
 } from "@/lib/tools/tools";
+import { storableBeforeConsent } from "./consent";
 import { type PromptTenant, systemPromptParts, wrapCustomerMessage } from "./prompt";
-import { bookedText, cancelledText, HANDOFF_TEXT, PERSON_SOON_TEXT, type Reply, rescheduledText, slotTakenText } from "./reply";
+import {
+  bookedText,
+  cancelledText,
+  HANDOFF_TEXT,
+  OVER_BUDGET_TEXT,
+  PERSON_SOON_TEXT,
+  type Reply,
+  rescheduledText,
+  slotTakenText,
+} from "./reply";
 
 /** Model calls in one customer turn. Each one is a row in model_calls. */
 export const MAX_MODEL_CALLS = 5;
@@ -32,6 +52,12 @@ export type AgentDeps = {
   bookings: BookingStore;
   data: AgentData;
   record: RecordCallDeps;
+  /** Reserved before every model call, settled or refunded after it. */
+  budget: Budget;
+  /** Exact-match FAQ answers. */
+  cache: ResponseCache;
+  /** "off" exists only to measure what caching saves (scripts/cache-ab.ts). */
+  promptCache?: "implicit" | "off";
   now: () => Date;
   log: (event: string, fields: Record<string, unknown>) => void;
 };
@@ -54,10 +80,25 @@ const SDK_TOOLS: ToolSet = Object.fromEntries(
 );
 
 // store: false keeps customer text out of OpenAI's stored responses. One tool at a
-// time keeps the order of a write and what follows it unambiguous.
-const PROVIDER_OPTIONS = {
-  openai: { store: false, parallelToolCalls: false, reasoningEffort: "low", textVerbosity: "low" },
-} as const;
+// time keeps the order of a write and what follows it unambiguous. Prompt caching is
+// implicit on this model family; explicit mode with no breakpoints caches nothing,
+// which is how the A/B measures the saving.
+function providerOptions(promptCache: AgentDeps["promptCache"]) {
+  return {
+    openai: {
+      store: false,
+      parallelToolCalls: false,
+      reasoningEffort: "low",
+      textVerbosity: "low",
+      ...(promptCache === "off" ? { promptCacheOptions: { mode: "explicit" } } : {}),
+    },
+  } as const;
+}
+
+/** A first question after consent: nothing earlier in the chat can change its answer. */
+function isStandalone(history: HistoryMessage[]): boolean {
+  return history.every((item) => item.role === "assistant" || storableBeforeConsent(item.content) !== null);
+}
 
 function terminalReply(outcome: TerminalOutcome, trace: Reply["trace"]): Reply {
   switch (outcome.status) {
@@ -113,6 +154,23 @@ export async function runAgent(deps: AgentDeps, turn: AgentTurn): Promise<Reply>
       { role: "user", content: wrapCustomerMessage(turn.text) },
     ];
 
+    const key =
+      isStandalone(history) && isCacheableQuestion(turn.text)
+        ? cacheKey({
+            tenantId: turn.tenantId,
+            version: tenantVersion(tenant),
+            localDate: localToday(deps.now(), tenant.timezone),
+            question: turn.text,
+          })
+        : null;
+    if (key) {
+      const cached = await deps.cache.get(key);
+      if (cached) {
+        deps.log("agent.cache_hit", fields);
+        return { text: cached, trace: { model: null, tools: [{ name: "faq_cache", status: "hit" }] } };
+      }
+    }
+
     const instructions = systemPromptParts(tenant, deps.now()).join("\n\n");
     const toolContext: ToolContext = {
       tenantId: turn.tenantId,
@@ -127,24 +185,48 @@ export async function runAgent(deps: AgentDeps, turn: AgentTurn): Promise<Reply>
       const remaining = deadline - deps.now().getTime();
       if (remaining <= 0) return degrade("deadline");
 
-      const result = await recordCall(
-        { tenantId: turn.tenantId, conversationId: turn.conversationId, purpose: "agent", model: deps.modelId },
-        deps.record,
-        () =>
-          generateText({
-            model: deps.model,
-            instructions,
-            messages,
-            tools: SDK_TOOLS,
-            maxRetries: 0, // Retries arrive in T19, with a total deadline.
-            abortSignal: AbortSignal.timeout(remaining),
-            providerOptions: PROVIDER_OPTIONS,
-          }),
+      // Before the call: the worst case it could cost, so a tenant can't overspend mid-flight.
+      const reservation = await deps.budget.reserve(
+        turn.tenantId,
+        estimateCallUsd(deps.modelId, instructions.length + JSON.stringify(messages).length),
       );
+      if (!reservation) {
+        deps.log("agent.over_budget", fields);
+        return { text: OVER_BUDGET_TEXT, degraded: "over_budget", trace };
+      }
+
+      let result;
+      try {
+        result = await recordCall(
+          { tenantId: turn.tenantId, conversationId: turn.conversationId, purpose: "agent", model: deps.modelId },
+          deps.record,
+          () =>
+            generateText({
+              model: deps.model,
+              instructions,
+              messages,
+              tools: SDK_TOOLS,
+              maxOutputTokens: MAX_OUTPUT_TOKENS,
+              maxRetries: 0, // Retries arrive in T19, with a total deadline.
+              abortSignal: AbortSignal.timeout(remaining),
+              providerOptions: providerOptions(deps.promptCache),
+            }),
+        );
+      } catch (error) {
+        await deps.budget.refund(reservation).catch((refundError: unknown) => deps.log("budget.refund_failed", { ...fields, error: String(refundError).slice(0, 200) }));
+        throw error;
+      }
+      // A failed settle must not lose the answer the customer is waiting for.
+      await deps.budget
+        .settle(reservation, callCostUsd(deps.modelId, billedTokens(result.usage)))
+        .catch((settleError: unknown) => deps.log("budget.settle_failed", { ...fields, error: String(settleError).slice(0, 200) }));
 
       if (result.toolCalls.length === 0) {
         const text = result.text.trim();
-        return text.length > 0 ? { text, trace } : degrade("empty_reply");
+        if (text.length === 0) return degrade("empty_reply");
+        // Only an answer no tool touched: it came from the tenant's own data in the prompt.
+        if (key && trace.tools.length === 0) await deps.cache.set(key, text, RESPONSE_TTL_SECONDS);
+        return { text, trace };
       }
 
       messages.push(...result.response.messages);

@@ -1,0 +1,280 @@
+{
+  "kind": "cache-ab",
+  "started_at": "2026-11-12T11:44:28.134Z",
+  "model": "gpt-6-luna",
+  "prices": {
+    "source": "https://developers.openai.com/api/docs/pricing",
+    "read_on": "2026-11-08",
+    "per_million_usd": {
+      "rates": {
+        "input": 0.1,
+        "cacheWrite": 0.125,
+        "cacheRead": 0.01,
+        "output": 0.5
+      },
+      "longPrompt": {
+        "overPromptTokens": 272000,
+        "rates": {
+          "input": 0.2,
+          "cacheWrite": 0.25,
+          "cacheRead": 0.02,
+          "output": 0.75
+        }
+      }
+    }
+  },
+  "method": "Same scripted conversation twice. 'off' uses explicit prompt caching with no breakpoints, so nothing is cached. 'on' uses implicit caching. Tokens and costs are read back from model_calls. The counterfactual prices the 'on' arm's own calls as if every input token were uncached, which removes the difference in call count between arms.",
+  "arms": {
+    "off": {
+      "ok": true,
+      "error": null,
+      "summary": {
+        "calls": 7,
+        "prompt_tokens": 16853,
+        "input_tokens": 16853,
+        "cache_write_tokens": 0,
+        "cache_read_tokens": 0,
+        "output_tokens": 285,
+        "cost_usd": 0.0018278,
+        "uncached_cost_usd": 0.0018278,
+        "cache_read_share": 0,
+        "cost_per_call_usd": 0.00026111,
+        "median_latency_ms": 2039
+      },
+      "calls": [
+        {
+          "input_tokens": 2206,
+          "cache_write_tokens": 0,
+          "cache_read_tokens": 0,
+          "output_tokens": 41,
+          "cost_usd": 0.0002411,
+          "latency_ms": 2444,
+          "outcome": "ok"
+        },
+        {
+          "input_tokens": 2279,
+          "cache_write_tokens": 0,
+          "cache_read_tokens": 0,
+          "output_tokens": 30,
+          "cost_usd": 0.0002429,
+          "latency_ms": 1503,
+          "outcome": "ok"
+        },
+        {
+          "input_tokens": 2534,
+          "cache_write_tokens": 0,
+          "cache_read_tokens": 0,
+          "output_tokens": 35,
+          "cost_usd": 0.0002709,
+          "latency_ms": 1570,
+          "outcome": "ok"
+        },
+        {
+          "input_tokens": 2362,
+          "cache_write_tokens": 0,
+          "cache_read_tokens": 0,
+          "output_tokens": 33,
+          "cost_usd": 0.0002527,
+          "latency_ms": 2233,
+          "outcome": "ok"
+        },
+        {
+          "input_tokens": 2477,
+          "cache_write_tokens": 0,
+          "cache_read_tokens": 0,
+          "output_tokens": 80,
+          "cost_usd": 0.0002877,
+          "latency_ms": 2039,
+          "outcome": "ok"
+        },
+        {
+          "input_tokens": 2438,
+          "cache_write_tokens": 0,
+          "cache_read_tokens": 0,
+          "output_tokens": 37,
+          "cost_usd": 0.0002623,
+          "latency_ms": 2283,
+          "outcome": "ok"
+        },
+        {
+          "input_tokens": 2557,
+          "cache_write_tokens": 0,
+          "cache_read_tokens": 0,
+          "output_tokens": 29,
+          "cost_usd": 0.0002702,
+          "latency_ms": 1207,
+          "outcome": "ok"
+        }
+      ],
+      "transcript": [
+        {
+          "said": "hola",
+          "reply": "Hola, soy el asistente de citas de Fisio Aurora (demo). Para ayudarte por este chat tratamos tu nombre, tu número y los datos de tus citas, con el fin de agendarlas y enviarte recordatorios.\n\nComo pueden revelar información de salud, son datos sensibles y no estás obligado(a) a autorizar su tratamiento. Se procesan con proveedores en Estados Unidos.\n\nPor favor no envíes síntomas, diagnósticos ni documentos.\n\nPolítica: https://example.com/privacy\n\nResponde ACEPTO para continuar o NO para no continuar.",
+          "tools": []
+        },
+        {
+          "said": "ACEPTO",
+          "reply": "Gracias por autorizar. ¿En qué te ayudo? Puedo agendar, cambiar o cancelar citas y responder tus preguntas.",
+          "tools": []
+        },
+        {
+          "said": "¿Cuánto cuesta la valoración inicial y dónde están ubicados?",
+          "reply": "La valoración inicial dura 60 minutos y cuesta $90.000. Estamos en la Calle Ficticia 12 # 34-56, consultorio 201, Medellín.",
+          "tools": []
+        },
+        {
+          "said": "Quiero agendar una valoración inicial el próximo martes a las 10 de la mañana.",
+          "reply": "Tu cita quedó confirmada.\n\nServicio: Valoración inicial\nCon: Andrés\nDía: martes 17 de noviembre de 2026\nHora: 10:00 a. m. (zona horaria America/Bogota)",
+          "tools": [
+            "check_availability:available",
+            "create_booking:booked"
+          ]
+        },
+        {
+          "said": "Por favor cambia mi cita para ese mismo día a las 3 de la tarde.",
+          "reply": "Tu cita quedó cambiada.\n\nServicio: Valoración inicial\nCon: Andrés\nDía: martes 17 de noviembre de 2026\nHora: 3:00 p. m. (zona horaria America/Bogota)",
+          "tools": [
+            "my_bookings:ok",
+            "reschedule_booking:rescheduled"
+          ]
+        },
+        {
+          "said": "Mejor cancela esa cita, por favor.",
+          "reply": "Tu cita quedó cancelada.\n\nServicio: Valoración inicial\nCon: Andrés\nDía: martes 17 de noviembre de 2026\nHora: 3:00 p. m. (zona horaria America/Bogota)",
+          "tools": [
+            "my_bookings:ok",
+            "cancel_booking:cancelled"
+          ]
+        }
+      ]
+    },
+    "on": {
+      "ok": true,
+      "error": null,
+      "summary": {
+        "calls": 7,
+        "prompt_tokens": 16830,
+        "input_tokens": 21,
+        "cache_write_tokens": 2926,
+        "cache_read_tokens": 13883,
+        "output_tokens": 298,
+        "cost_usd": 0.00065569,
+        "uncached_cost_usd": 0.001832,
+        "cache_read_share": 0.8249,
+        "cost_per_call_usd": 0.00009367,
+        "median_latency_ms": 1363
+      },
+      "calls": [
+        {
+          "input_tokens": 3,
+          "cache_write_tokens": 2203,
+          "cache_read_tokens": 0,
+          "output_tokens": 36,
+          "cost_usd": 0.00029368,
+          "latency_ms": 1264,
+          "outcome": "ok"
+        },
+        {
+          "input_tokens": 3,
+          "cache_write_tokens": 68,
+          "cache_read_tokens": 2203,
+          "output_tokens": 30,
+          "cost_usd": 0.00004583,
+          "latency_ms": 1363,
+          "outcome": "ok"
+        },
+        {
+          "input_tokens": 3,
+          "cache_write_tokens": 255,
+          "cache_read_tokens": 2271,
+          "output_tokens": 35,
+          "cost_usd": 0.00007238,
+          "latency_ms": 971,
+          "outcome": "ok"
+        },
+        {
+          "input_tokens": 3,
+          "cache_write_tokens": 83,
+          "cache_read_tokens": 2271,
+          "output_tokens": 46,
+          "cost_usd": 0.00005639,
+          "latency_ms": 2344,
+          "outcome": "ok"
+        },
+        {
+          "input_tokens": 3,
+          "cache_write_tokens": 128,
+          "cache_read_tokens": 2354,
+          "output_tokens": 71,
+          "cost_usd": 0.00007534,
+          "latency_ms": 1666,
+          "outcome": "ok"
+        },
+        {
+          "input_tokens": 3,
+          "cache_write_tokens": 76,
+          "cache_read_tokens": 2354,
+          "output_tokens": 31,
+          "cost_usd": 0.00004884,
+          "latency_ms": 1219,
+          "outcome": "ok"
+        },
+        {
+          "input_tokens": 3,
+          "cache_write_tokens": 113,
+          "cache_read_tokens": 2430,
+          "output_tokens": 49,
+          "cost_usd": 0.00006323,
+          "latency_ms": 4197,
+          "outcome": "ok"
+        }
+      ],
+      "transcript": [
+        {
+          "said": "hola",
+          "reply": "Hola, soy el asistente de citas de Fisio Aurora (demo). Para ayudarte por este chat tratamos tu nombre, tu número y los datos de tus citas, con el fin de agendarlas y enviarte recordatorios.\n\nComo pueden revelar información de salud, son datos sensibles y no estás obligado(a) a autorizar su tratamiento. Se procesan con proveedores en Estados Unidos.\n\nPor favor no envíes síntomas, diagnósticos ni documentos.\n\nPolítica: https://example.com/privacy\n\nResponde ACEPTO para continuar o NO para no continuar.",
+          "tools": []
+        },
+        {
+          "said": "ACEPTO",
+          "reply": "Gracias por autorizar. ¿En qué te ayudo? Puedo agendar, cambiar o cancelar citas y responder tus preguntas.",
+          "tools": []
+        },
+        {
+          "said": "¿Cuánto cuesta la valoración inicial y dónde están ubicados?",
+          "reply": "La valoración inicial cuesta $90.000. Estamos en la Calle Ficticia 12 # 34-56, consultorio 201, Medellín.",
+          "tools": []
+        },
+        {
+          "said": "Quiero agendar una valoración inicial el próximo martes a las 10 de la mañana.",
+          "reply": "Tu cita quedó confirmada.\n\nServicio: Valoración inicial\nCon: Andrés\nDía: martes 17 de noviembre de 2026\nHora: 10:00 a. m. (zona horaria America/Bogota)",
+          "tools": [
+            "check_availability:available",
+            "create_booking:booked"
+          ]
+        },
+        {
+          "said": "Por favor cambia mi cita para ese mismo día a las 3 de la tarde.",
+          "reply": "Tu cita quedó cambiada.\n\nServicio: Valoración inicial\nCon: Andrés\nDía: martes 17 de noviembre de 2026\nHora: 3:00 p. m. (zona horaria America/Bogota)",
+          "tools": [
+            "my_bookings:ok",
+            "reschedule_booking:rescheduled"
+          ]
+        },
+        {
+          "said": "Mejor cancela esa cita, por favor.",
+          "reply": "Tu cita quedó cancelada.\n\nServicio: Valoración inicial\nCon: Andrés\nDía: martes 17 de noviembre de 2026\nHora: 3:00 p. m. (zona horaria America/Bogota)",
+          "tools": [
+            "my_bookings:ok",
+            "cancel_booking:cancelled"
+          ]
+        }
+      ]
+    }
+  },
+  "result": {
+    "saving_per_call": 0.6413,
+    "saving_vs_uncached_counterfactual": 0.6421,
+    "total_cost_usd": 0.00248349
+  }
+}

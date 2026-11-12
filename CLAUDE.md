@@ -115,10 +115,10 @@ Phase 2 exit: met on the web chat, **open on WhatsApp** until the Twilio account
 
 **Phase 3: Cost control and reminders.** Exit: reminders send on schedule, an over-budget tenant is blocked, and the cache saving is a recorded number.
 
-- [ ] T15 📝 Reminders: pg_cron + Edge Function, templates outside the 24-hour window
-- [ ] T16 Rate limit per hashed number and per demo IP (Upstash)
-- [ ] T17 Per-tenant budget: reserve, settle, refund; demo daily cap
-- [ ] T18 Prompt caching + exact-match FAQ cache; saving measured
+- [ ] T15 📝 Reminders: pg_cron + Edge Function, templates outside the 24-hour window (built, deployed and scheduled; the live send waits on the owner's Edge Function secrets)
+- [x] T16 Rate limit per hashed number and per demo IP (Upstash) (live once the owner adds the Upstash values)
+- [x] T17 Per-tenant budget: reserve, settle, refund; demo daily cap
+- [x] T18 Prompt caching + exact-match FAQ cache; saving measured
 
 **Phase 4: Resilience.** Exit: the chaos test passes and the result is in the README.
 
@@ -207,7 +207,7 @@ Record the answer, the run or source that supports it, and the date when closed.
 1. **Which business type to model first. Decided 8 Nov 2026 (T01, owner): home healthcare and outpatient clinics (physical therapy, chiropractic, dental).** The recommendation was a barbershop or salon; the owner chose health, which brings the "Health-sector rules" below. **First synthetic tenant (owner, 8 Nov): an outpatient physical therapy clinic, Fisio Aurora (demo).** Home visits wait until after the minimum is deployed.
 2. **Fallback model.** With one provider the candidate is `gpt-6.1-sol`. It survives a model-specific failure but not an OpenAI-wide outage, so the chain's later steps (button menu, "a person will reply soon") carry that case, and the chaos test should model it. A second provider needs a key the owner doesn't have. Decide from measured failure and cost numbers in Phase 4 (T20).
 3. **Production messaging provider.** Twilio or Meta Cloud API directly. Decide only if a client is lined up.
-4. **Default monthly budget per tenant and rate-limit thresholds.** Tune from the measured cost per conversation (Phase 3 and the first eval run).
+4. **Default monthly budget per tenant and rate-limit thresholds.** Tune from the measured cost per conversation (Phase 3 and the first eval run). Starting values (12 Nov, T16–T17): $5 a month when `monthly_budget_usd` is null; demo cap $0.50 a day; 10 messages a minute and 100 a day per customer; 20 a minute and 200 a day per web IP. The measured conversation costs $0.00066 with caching, so $5 covers about 7,500 of them.
 5. **Whether to submit a reminder template for approval early.** Read 8 Nov: the Sandbox has a built-in Appointment Reminders template and doesn't support custom templates, so development needs no approval. Recommendation: use the Sandbox template through Phase 3 and submit a custom one only when a client and a registered sender exist. Submitting needs the owner's approval.
 
 **Parked ideas:** home visits (patient address, travel time between visits), after the minimum is deployed.
@@ -262,6 +262,8 @@ Read from vendor pages on the dates shown. The dated table in `lib/cost` is the 
 
 Back-of-envelope figures (cost per conversation, per eval run) go here only after T05, computed from the table, and are replaced by measured values as soon as runs exist.
 
+**Measured (12 Nov 2026, `evals/runs/2026-11-12-cache-ab.json`):** one scripted conversation is 7 calls (a question, then book, reschedule and cancel) on `gpt-6-luna`. With prompt caching off it cost $0.00183; with it on, $0.00066. That's **64.1% less per call**, with 82.5% of prompt tokens read from the cache. Median call latency went from 2.0 s to 1.4 s.
+
 ## Reference docs
 
 Link-checked by the owner before 7 Nov 2026. Agents still fetch the page before writing code against it.
@@ -295,3 +297,4 @@ Keep this current. Append one line per working session: date, what shipped, the 
 - **2026-11-08 (OpenAI only)** — Owner confirmed Agendo uses only an OpenAI key. Dropped `@ai-sdk/anthropic` for `@ai-sdk/openai` 4.0.111; `gpt-6-luna` is primary and `gpt-6.1-sol` the fallback candidate. Pricing table rewritten from OpenAI's page (272k long-prompt tier instead of 100k); prompt cache minimum is 1,024 tokens, not 512. The fallback now shares the primary's provider, so the chaos test must cover an OpenAI-wide failure. 103 tests pass. A real Supabase key had been pasted into `.env.example`; it never reached a commit and now lives in `.env.local`. $0 spent.
 - **2026-11-09 (Phase 2, prompt 002)** — T10–T14 built on three stacked local branches, started before Phase 1's exit check by owner decision. Exclusion constraint live on the lab project (10 parallel inserts: 1 accepted, 9 `23P01`); availability maths with DST tests; six tools scoped by the server; hand-written tool loop (5 calls, 12 s or 25 s deadline, one write per turn, confirmations built from the row); emergency check before any model call; web chat on the same core. Live smoke on `gpt-6-luna`: booked, rescheduled and cancelled for $0.000676 in 7 calls, median 2.0 s. 215 unit and 8 Playwright tests pass. WhatsApp delivery is still unproven (Twilio trial). Next: settle Twilio, then Phase 3.
 - **2026-11-10 (Phase 1 closed on the web chat)** — Owner ran the database check, sent the Appointment Reminders template to their own phone (arrived) and completed consent and a reply on the web chat. Twilio's trial page confirms trial accounts can't send custom message bodies, so free-text WhatsApp replies stay unproven until the account is upgraded. T03–T09 ticked with that caveat. $0 spent. Next: Phase 3 (T15 reminders on the built-in template, T16 rate limits, T17 budgets, T18 caching).
+- **2026-11-12 (Phase 3, prompt 003)** — T15–T18 built on three stacked branches. Reminders: a claim function, a Deno Edge Function deployed with a token check, and a pg_cron job every 10 minutes (pg_cron, pg_net and two Vault secrets added outside `agendo` with approval); 4 overlapping claims over 6 due bookings returned 6 distinct reminders. Budget: atomic reserve, settle and refund; 10 parallel $0.30 reservations against $1.00 let 3 through, and a $0 tenant got the static reply with no model call. Rate limits in Upstash, failing open. Exact-match FAQ cache for first questions only. Prompt-caching A/B: 64.1% cheaper per call, 82.5% of prompt tokens cached, median 2.0 s → 1.4 s, $0.0025 for both arms. 258 unit and 9 Playwright tests. Exit check: over-budget block and cache saving met; the reminder send waits on the owner's Edge Function secrets, and rate limits on Upstash values. Next: owner hand steps, then Phase 4.
