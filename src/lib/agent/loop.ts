@@ -4,6 +4,7 @@ import { localToday } from "@/lib/booking/availability";
 import { billedTokens, recordCall, type RecordCallDeps } from "@/lib/calls/record-call";
 import { callCostUsd } from "@/lib/cost/pricing";
 import { type Budget, estimateCallUsd, MAX_OUTPUT_TOKENS } from "@/lib/guard/budget";
+import { checkReply } from "@/lib/guard/output-check";
 import {
   cacheKey,
   isCacheableQuestion,
@@ -13,7 +14,7 @@ import {
 } from "@/lib/guard/response-cache";
 import { redactPhones } from "@/lib/pii/redact";
 import { type ChainDeps, ChainExhaustedError, type ChainModel, callChain } from "@/lib/resilience/chain";
-import { menuReply } from "@/lib/resilience/menu";
+import { MENU_SHOWN, menuReply } from "@/lib/resilience/menu";
 import type { BookingStore } from "@/lib/tools/store";
 import {
   isTerminal,
@@ -201,6 +202,8 @@ export async function runAgent(deps: AgentDeps, turn: AgentTurn): Promise<Reply>
       store: deps.bookings,
     };
     let writeAttempted = false;
+    /** What the tools told the model this turn: the facts its text may use. */
+    const outcomes: unknown[] = [];
 
     /** One attempt on one model: reserve, call, settle, or refund if the call failed. */
     const attempt = async (step: ChainModel, index: number) => {
@@ -252,6 +255,21 @@ export async function runAgent(deps: AgentDeps, turn: AgentTurn): Promise<Reply>
       if (result.toolCalls.length === 0) {
         const text = result.text.trim();
         if (text.length === 0) return degrade("empty_reply");
+
+        // Output rules in code: the text must agree with the tenant's data and this turn's
+        // tool results. A failure is never sent and never cached; the menu answers instead.
+        const check = checkReply(text, { tenant, outcomes, toolsRan: trace.tools.map((item) => item.name) });
+        if (!check.ok) {
+          deps.log("output_check.failed", { ...fields, model: trace.model, violations: check.violations });
+          return {
+            ...menuReply("menu"),
+            trace: {
+              model: trace.model,
+              tools: [...trace.tools, { name: "output_check", status: `failed:${check.violations.join("+")}` }, MENU_SHOWN],
+            },
+          };
+        }
+
         // Only an answer no tool touched: it came from the tenant's own data in the prompt.
         if (key && trace.tools.length === 0) await deps.cache.set(key, text, RESPONSE_TTL_SECONDS);
         return { text, trace };
@@ -276,6 +294,7 @@ export async function runAgent(deps: AgentDeps, turn: AgentTurn): Promise<Reply>
         trace.tools.push({ name: toolCall.toolName, status: outcome.status });
         if (isTerminal(outcome)) return terminalReply(outcome, trace);
 
+        outcomes.push(outcome);
         parts.push({
           type: "tool-result" as const,
           toolCallId: toolCall.toolCallId,
