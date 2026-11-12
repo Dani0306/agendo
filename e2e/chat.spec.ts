@@ -67,6 +67,18 @@ test("shows the degraded reply as a designed state, not an error", async ({ page
   await expect(page.getByTestId("trace")).toContainText("Sin llamada al modelo");
 });
 
+test("shows the over-budget and rate-limited states", async ({ page }) => {
+  await stubChat(page, [
+    { text: "En este momento no puedo responder automáticamente.", degraded: "over_budget", trace: noModel },
+    { text: "Estás enviando mensajes muy rápido.", degraded: "rate_limited", trace: noModel },
+  ]);
+  await page.goto("/");
+  await send(page, "hola");
+
+  await expect(page.getByTestId("degraded").first()).toContainText("Presupuesto agotado");
+  await expect(page.getByTestId("degraded").last()).toContainText("Límite de mensajes");
+});
+
 test("shows a handoff", async ({ page }) => {
   await stubChat(page, [{ text: "Le pasé tu conversación a una persona.", degraded: "handoff", trace: noModel }]);
   await page.goto("/");

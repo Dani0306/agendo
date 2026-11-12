@@ -12,7 +12,8 @@ import {
   TEXT_ONLY_REPLY,
 } from "./consent";
 import { isPossibleEmergency } from "./emergency";
-import { EMERGENCY_TEXT, HANDOFF_ACK_TEXT, type Reply, staticReply } from "./reply";
+import type { RateLimiter } from "@/lib/guard/rate-limit";
+import { EMERGENCY_TEXT, HANDOFF_ACK_TEXT, RATE_LIMITED_TEXT, type Reply, staticReply } from "./reply";
 
 /** Longer than the agent's deadline. Renewed before each message in a backlog. */
 export const LEASE_MS = 60_000;
@@ -60,6 +61,8 @@ export type InboundDeps = {
   /** Delivers a reply and returns its provider id. The phone is null for a web visitor. */
   send: (phone: string | null, reply: Reply) => Promise<string>;
   agent: (turn: AgentRequest) => Promise<Reply>;
+  /** Per customer, checked before anything that could reach a model. */
+  limiter: RateLimiter;
   secrets: PiiSecrets;
   privacyUrl: string;
   now: () => Date;
@@ -130,6 +133,13 @@ async function agentReply(
     await store.markHandoff(tenant.id, conversationId);
     deps.log("inbound.emergency", { tenantId: tenant.id, conversationId });
     return staticReply(EMERGENCY_TEXT, "handoff");
+  }
+
+  // After the emergency check, so an emergency is never rate-limited.
+  const allowed = await deps.limiter.check(`customer:${customer.id}`);
+  if (!allowed.ok) {
+    deps.log("inbound.rate_limited", { tenantId: tenant.id, conversationId });
+    return staticReply(RATE_LIMITED_TEXT, "rate_limited");
   }
 
   return deps.agent({ tenantId: tenant.id, conversationId, customerId: customer.id, messageId: message.id, text });

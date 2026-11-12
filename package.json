@@ -14,12 +14,15 @@
     "db:smoke": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/db-smoke.ts",
     "seed": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/seed.ts",
     "db:race": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/db-race.ts",
+    "db:budget-check": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/budget-check.ts",
     "db:reminder-race": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/db-reminder-race.ts",
     "agent:smoke": "node --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/agent-smoke.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "4.0.111",
     "@supabase/supabase-js": "2.119.0",
+    "@upstash/ratelimit": "2.2.0",
+    "@upstash/redis": "1.40.0",
     "ai": "7.0.165",
     "next": "16.4.5",
     "react": "19.3.0",

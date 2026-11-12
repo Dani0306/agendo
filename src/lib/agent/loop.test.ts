@@ -5,7 +5,8 @@ import type { ModelCallRow } from "@/lib/calls/record-call";
 import { PRIMARY_MODEL } from "@/lib/models";
 import { fakeStore } from "@/lib/tools/fake-store";
 import { type AgentDeps, type AgentTurn, MAX_MODEL_CALLS, runAgent } from "./loop";
-import { PERSON_SOON_TEXT } from "./reply";
+import type { Budget, Reservation } from "@/lib/guard/budget";
+import { OVER_BUDGET_TEXT, PERSON_SOON_TEXT } from "./reply";
 
 const NOW = new Date("2026-11-09T12:00:00Z");
 const TUESDAY = "2026-11-10";
@@ -52,6 +53,23 @@ function scripted(steps: Step[]) {
 let rows: ModelCallRow[];
 let log: ReturnType<typeof vi.fn<AgentDeps["log"]>>;
 let fake: ReturnType<typeof fakeStore>;
+let ledger: { reserved: number[]; settled: number[]; refunded: number[]; allow: number };
+
+/** Records every step and allows `ledger.allow` reservations. */
+const budget: Budget = {
+  reserve: async (tenantId, usd) => {
+    if (ledger.allow <= 0) return null;
+    ledger.allow -= 1;
+    ledger.reserved.push(usd);
+    return { tenantId, month: "2026-11-01", usd };
+  },
+  settle: async (_reservation: Reservation, actual: number) => {
+    ledger.settled.push(actual);
+  },
+  refund: async (reservation: Reservation) => {
+    ledger.refunded.push(reservation.usd);
+  },
+};
 
 const turn: AgentTurn = { tenantId: "t1", conversationId: "c1", customerId: "ana", messageId: 9, text: "hola", deadlineMs: 5000 };
 
@@ -76,6 +94,7 @@ function deps(model: AgentDeps["model"], history: { role: "customer" | "assistan
         rows.push(row);
       },
     },
+    budget,
     now: () => NOW,
     log,
   };
@@ -87,6 +106,58 @@ beforeEach(() => {
   rows = [];
   log = vi.fn<AgentDeps["log"]>();
   fake = fakeStore(schedule, services);
+  ledger = { reserved: [], settled: [], refunded: [], allow: 100 };
+});
+
+describe("budget", () => {
+  it("reserves before each model call and settles each with its real cost", async () => {
+    const model = scripted([{ tool: "check_availability", input: { service: "Valoración inicial", date: TUESDAY } }, { text: "Hay cupos." }]);
+    await runAgent(deps(model), turn);
+
+    expect(ledger.reserved).toHaveLength(2);
+    expect(ledger.settled).toHaveLength(2);
+    // 100 uncached input and 10 output tokens on gpt-6-luna: $0.10 and $0.50 per 1M.
+    expect(ledger.settled[0]).toBeCloseTo((100 * 0.1 + 10 * 0.5) / 1e6, 10);
+    expect(ledger.reserved[0]!).toBeGreaterThan(ledger.settled[0]!);
+  });
+
+  it("makes no model call when the budget is spent", async () => {
+    ledger.allow = 0;
+    const model = scripted([{ text: "hola" }]);
+    const reply = await runAgent(deps(model), turn);
+
+    expect(model.doGenerateCalls).toHaveLength(0);
+    expect(rows).toHaveLength(0);
+    expect(reply).toMatchObject({ text: OVER_BUDGET_TEXT, degraded: "over_budget" });
+  });
+
+  it("stops mid-turn when the budget runs out between calls", async () => {
+    ledger.allow = 1;
+    const model = scripted([{ tool: "my_bookings", input: {} }, { text: "no llega" }]);
+    const reply = await runAgent(deps(model), turn);
+
+    expect(model.doGenerateCalls).toHaveLength(1);
+    expect(reply.degraded).toBe("over_budget");
+  });
+
+  it("refunds the reservation when the call fails", async () => {
+    const model = new MockLanguageModelV4({
+      modelId: PRIMARY_MODEL,
+      doGenerate: async () => {
+        throw new Error("boom");
+      },
+    });
+    await runAgent(deps(model), turn);
+
+    expect(ledger.refunded).toEqual(ledger.reserved);
+    expect(ledger.settled).toHaveLength(0);
+  });
+
+  it("asks the provider for no more output than the reservation covers", async () => {
+    const model = scripted([{ text: "ok" }]);
+    await runAgent(deps(model), turn);
+    expect(model.doGenerateCalls[0]!.maxOutputTokens).toBe(600);
+  });
 });
 
 describe("runAgent", () => {

@@ -50,7 +50,7 @@ export type RecordCallDeps = {
   onSinkError?: (error: unknown) => void;
 };
 
-function billedTokens(usage: SdkUsage) {
+export function billedTokens(usage: SdkUsage) {
   const cacheReadTokens = usage.inputTokenDetails.cacheReadTokens ?? 0;
   const cacheWriteTokens = usage.inputTokenDetails.cacheWriteTokens ?? 0;
   const inputTokens =

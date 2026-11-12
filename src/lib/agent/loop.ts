@@ -1,6 +1,8 @@
 import { generateText, type LanguageModel, type ModelMessage, tool, type ToolSet } from "ai";
 import type { z } from "zod";
-import { recordCall, type RecordCallDeps } from "@/lib/calls/record-call";
+import { billedTokens, recordCall, type RecordCallDeps } from "@/lib/calls/record-call";
+import { callCostUsd } from "@/lib/cost/pricing";
+import { type Budget, estimateCallUsd, MAX_OUTPUT_TOKENS } from "@/lib/guard/budget";
 import { redactPhones } from "@/lib/pii/redact";
 import type { BookingStore } from "@/lib/tools/store";
 import {
@@ -13,7 +15,16 @@ import {
   usesWriteAttempt,
 } from "@/lib/tools/tools";
 import { type PromptTenant, systemPromptParts, wrapCustomerMessage } from "./prompt";
-import { bookedText, cancelledText, HANDOFF_TEXT, PERSON_SOON_TEXT, type Reply, rescheduledText, slotTakenText } from "./reply";
+import {
+  bookedText,
+  cancelledText,
+  HANDOFF_TEXT,
+  OVER_BUDGET_TEXT,
+  PERSON_SOON_TEXT,
+  type Reply,
+  rescheduledText,
+  slotTakenText,
+} from "./reply";
 
 /** Model calls in one customer turn. Each one is a row in model_calls. */
 export const MAX_MODEL_CALLS = 5;
@@ -32,6 +43,8 @@ export type AgentDeps = {
   bookings: BookingStore;
   data: AgentData;
   record: RecordCallDeps;
+  /** Reserved before every model call, settled or refunded after it. */
+  budget: Budget;
   now: () => Date;
   log: (event: string, fields: Record<string, unknown>) => void;
 };
@@ -127,20 +140,41 @@ export async function runAgent(deps: AgentDeps, turn: AgentTurn): Promise<Reply>
       const remaining = deadline - deps.now().getTime();
       if (remaining <= 0) return degrade("deadline");
 
-      const result = await recordCall(
-        { tenantId: turn.tenantId, conversationId: turn.conversationId, purpose: "agent", model: deps.modelId },
-        deps.record,
-        () =>
-          generateText({
-            model: deps.model,
-            instructions,
-            messages,
-            tools: SDK_TOOLS,
-            maxRetries: 0, // Retries arrive in T19, with a total deadline.
-            abortSignal: AbortSignal.timeout(remaining),
-            providerOptions: PROVIDER_OPTIONS,
-          }),
+      // Before the call: the worst case it could cost, so a tenant can't overspend mid-flight.
+      const reservation = await deps.budget.reserve(
+        turn.tenantId,
+        estimateCallUsd(deps.modelId, instructions.length + JSON.stringify(messages).length),
       );
+      if (!reservation) {
+        deps.log("agent.over_budget", fields);
+        return { text: OVER_BUDGET_TEXT, degraded: "over_budget", trace };
+      }
+
+      let result;
+      try {
+        result = await recordCall(
+          { tenantId: turn.tenantId, conversationId: turn.conversationId, purpose: "agent", model: deps.modelId },
+          deps.record,
+          () =>
+            generateText({
+              model: deps.model,
+              instructions,
+              messages,
+              tools: SDK_TOOLS,
+              maxOutputTokens: MAX_OUTPUT_TOKENS,
+              maxRetries: 0, // Retries arrive in T19, with a total deadline.
+              abortSignal: AbortSignal.timeout(remaining),
+              providerOptions: PROVIDER_OPTIONS,
+            }),
+        );
+      } catch (error) {
+        await deps.budget.refund(reservation).catch((refundError: unknown) => deps.log("budget.refund_failed", { ...fields, error: String(refundError).slice(0, 200) }));
+        throw error;
+      }
+      // A failed settle must not lose the answer the customer is waiting for.
+      await deps.budget
+        .settle(reservation, callCostUsd(deps.modelId, billedTokens(result.usage)))
+        .catch((settleError: unknown) => deps.log("budget.settle_failed", { ...fields, error: String(settleError).slice(0, 200) }));
 
       if (result.toolCalls.length === 0) {
         const text = result.text.trim();
