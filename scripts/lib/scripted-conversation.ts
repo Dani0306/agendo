@@ -14,6 +14,8 @@ import { hashWebVisitor, loadPiiSecrets } from "@/lib/pii/phone";
 const CONFIRM = "Sí, confirmo, por favor hazlo.";
 
 export type CallRow = {
+  model: string;
+  chain_step: number;
   input_tokens: number;
   cache_write_tokens: number;
   cache_read_tokens: number;
@@ -29,13 +31,15 @@ export async function runScriptedConversation(options: {
   promptCache: AgentDeps["promptCache"];
   maxUsd: number;
   quiet?: boolean;
+  /** Extra wiring, for the chaos run: a broken chain and an isolated breaker. */
+  inbound?: Pick<NonNullable<Parameters<typeof inboundDeps>[1]>, "chain" | "breakerStore">;
 }): Promise<ConversationResult> {
   const demo = demoConfig();
   if (!demo) throw new Error("Set DEMO_CHAT_ENABLED=1 and DEMO_RECEIVING_NUMBER");
 
   const client = db();
   // No response cache: every turn must reach the model, or the arms aren't comparable.
-  const deps = inboundDeps(WEB_DEADLINE_MS, { promptCache: options.promptCache, responseCache: false });
+  const deps = inboundDeps(WEB_DEADLINE_MS, { promptCache: options.promptCache, responseCache: false, ...options.inbound });
   const visitor = `scripted-${randomUUID()}`;
   const phoneHash = hashWebVisitor(visitor, loadPiiSecrets().pepper);
   const tenant = unwrap(await client.from("tenants").select("id").eq("receiving_number", demo.receivingNumber).single()) as {
@@ -51,7 +55,7 @@ export async function runScriptedConversation(options: {
       ? (unwrap(
           await client
             .from("model_calls")
-            .select("input_tokens, cache_write_tokens, cache_read_tokens, output_tokens, cost_usd, latency_ms, outcome")
+            .select("model, chain_step, input_tokens, cache_write_tokens, cache_read_tokens, output_tokens, cost_usd, latency_ms, outcome")
             .eq("conversation_id", conversationId)
             .order("id"),
         ) as CallRow[])

@@ -1,8 +1,8 @@
-import { generateText, type LanguageModel, type ModelMessage, tool, type ToolSet } from "ai";
+import { generateText, type ModelMessage, tool, type ToolSet } from "ai";
 import type { z } from "zod";
+import { localToday } from "@/lib/booking/availability";
 import { billedTokens, recordCall, type RecordCallDeps } from "@/lib/calls/record-call";
 import { callCostUsd } from "@/lib/cost/pricing";
-import { localToday } from "@/lib/booking/availability";
 import { type Budget, estimateCallUsd, MAX_OUTPUT_TOKENS } from "@/lib/guard/budget";
 import {
   cacheKey,
@@ -12,6 +12,8 @@ import {
   tenantVersion,
 } from "@/lib/guard/response-cache";
 import { redactPhones } from "@/lib/pii/redact";
+import { type ChainDeps, ChainExhaustedError, type ChainModel, callChain } from "@/lib/resilience/chain";
+import { menuReply } from "@/lib/resilience/menu";
 import type { BookingStore } from "@/lib/tools/store";
 import {
   isTerminal,
@@ -28,14 +30,13 @@ import {
   bookedText,
   cancelledText,
   HANDOFF_TEXT,
-  OVER_BUDGET_TEXT,
   PERSON_SOON_TEXT,
   type Reply,
   rescheduledText,
   slotTakenText,
 } from "./reply";
 
-/** Model calls in one customer turn. Each one is a row in model_calls. */
+/** Model calls in one customer turn, retries and fallbacks not counted. */
 export const MAX_MODEL_CALLS = 5;
 export const HISTORY_MESSAGES = 20;
 
@@ -47,8 +48,9 @@ export type AgentData = {
 };
 
 export type AgentDeps = {
-  model: LanguageModel;
-  modelId: string;
+  /** The fallback chain, primary first. After the last model comes the menu. */
+  chain: ChainModel[];
+  resilience: ChainDeps;
   bookings: BookingStore;
   data: AgentData;
   record: RecordCallDeps;
@@ -119,30 +121,49 @@ function isToolName(name: string): name is ToolName {
   return Object.hasOwn(TOOLS, name);
 }
 
+/** The budget refused a reservation. Not a provider failure, so the chain doesn't move on. */
+class OverBudgetError extends Error {
+  constructor() {
+    super("over budget");
+    this.name = "OverBudgetError";
+  }
+}
+
+function deadlineError(): Error {
+  const error = new Error("turn deadline reached");
+  error.name = "TimeoutError";
+  return error;
+}
+
 /**
  * The tool loop. The model only asks; this code validates, scopes and runs each tool.
  * Reaching a write's result ends the turn, so what the customer reads about a booking
- * is built from the database row and never from the model's text.
+ * is built from the database row and never from the model's text. Every way out
+ * gives the customer a reply: an answer, the menu, or a person will write soon.
  */
 export async function runAgent(deps: AgentDeps, turn: AgentTurn): Promise<Reply> {
-  const trace: Reply["trace"] = { model: deps.modelId, tools: [] };
+  const trace: Reply["trace"] = { model: deps.chain[0]?.id ?? null, tools: [] };
   const deadline = deps.now().getTime() + turn.deadlineMs;
   const fields = { tenantId: turn.tenantId, conversationId: turn.conversationId };
+  let tenant: PromptTenant | null = null;
 
+  /** The menu when the tenant's data is loaded; "a person will write soon" if not even that. */
   const degrade = (reason: string, error?: unknown): Reply => {
     deps.log("agent.degraded", {
       ...fields,
       reason,
-      ...(error === undefined ? {} : { error: redactPhones(error instanceof Error ? error.message : String(error)).slice(0, 200) }),
+      ...(error === undefined ? {} : { error: redactPhones(error instanceof Error ? error.message : String(error)).slice(0, 300) }),
     });
-    return { text: PERSON_SOON_TEXT, degraded: "person_soon", trace };
+    if (reason === "over_budget") return menuReply("over_budget");
+    return tenant ? menuReply("menu") : { text: PERSON_SOON_TEXT, degraded: "person_soon", trace };
   };
 
   try {
-    const [tenant, history] = await Promise.all([
+    const [loadedTenant, history] = await Promise.all([
       deps.data.promptTenant(turn.tenantId),
       deps.data.history(turn.tenantId, turn.conversationId, turn.messageId, HISTORY_MESSAGES),
     ]);
+    tenant = loadedTenant;
 
     const messages: ModelMessage[] = [
       ...history.map(
@@ -181,45 +202,52 @@ export async function runAgent(deps: AgentDeps, turn: AgentTurn): Promise<Reply>
     };
     let writeAttempted = false;
 
-    for (let call = 0; call < MAX_MODEL_CALLS; call += 1) {
+    /** One attempt on one model: reserve, call, settle, or refund if the call failed. */
+    const attempt = async (step: ChainModel, index: number) => {
       const remaining = deadline - deps.now().getTime();
-      if (remaining <= 0) return degrade("deadline");
+      if (remaining <= 0) throw deadlineError();
 
-      // Before the call: the worst case it could cost, so a tenant can't overspend mid-flight.
+      const priceModel = step.priceModel ?? step.id;
       const reservation = await deps.budget.reserve(
         turn.tenantId,
-        estimateCallUsd(deps.modelId, instructions.length + JSON.stringify(messages).length),
+        estimateCallUsd(priceModel, instructions.length + JSON.stringify(messages).length),
       );
-      if (!reservation) {
-        deps.log("agent.over_budget", fields);
-        return { text: OVER_BUDGET_TEXT, degraded: "over_budget", trace };
-      }
+      if (!reservation) throw new OverBudgetError();
 
-      let result;
       try {
-        result = await recordCall(
-          { tenantId: turn.tenantId, conversationId: turn.conversationId, purpose: "agent", model: deps.modelId },
+        const result = await recordCall(
+          { tenantId: turn.tenantId, conversationId: turn.conversationId, purpose: "agent", model: step.id, priceModel, chainStep: index },
           deps.record,
           () =>
             generateText({
-              model: deps.model,
+              model: step.model,
               instructions,
               messages,
               tools: SDK_TOOLS,
               maxOutputTokens: MAX_OUTPUT_TOKENS,
-              maxRetries: 0, // Retries arrive in T19, with a total deadline.
+              maxRetries: 0, // This code owns retries, so each attempt is its own logged row.
               abortSignal: AbortSignal.timeout(remaining),
               providerOptions: providerOptions(deps.promptCache),
             }),
         );
+        // A failed settle must not lose the answer the customer is waiting for.
+        await deps.budget
+          .settle(reservation, callCostUsd(priceModel, billedTokens(result.usage)))
+          .catch((settleError: unknown) => deps.log("budget.settle_failed", { ...fields, error: String(settleError).slice(0, 200) }));
+        return result;
       } catch (error) {
-        await deps.budget.refund(reservation).catch((refundError: unknown) => deps.log("budget.refund_failed", { ...fields, error: String(refundError).slice(0, 200) }));
+        await deps.budget
+          .refund(reservation)
+          .catch((refundError: unknown) => deps.log("budget.refund_failed", { ...fields, error: String(refundError).slice(0, 200) }));
         throw error;
       }
-      // A failed settle must not lose the answer the customer is waiting for.
-      await deps.budget
-        .settle(reservation, callCostUsd(deps.modelId, billedTokens(result.usage)))
-        .catch((settleError: unknown) => deps.log("budget.settle_failed", { ...fields, error: String(settleError).slice(0, 200) }));
+    };
+
+    for (let call = 0; call < MAX_MODEL_CALLS; call += 1) {
+      if (deadline - deps.now().getTime() <= 0) return degrade("deadline");
+
+      const { value: result, index } = await callChain(deps.chain, deps.resilience, { deadlineAt: deadline, fields }, attempt);
+      trace.model = deps.chain[index]!.id;
 
       if (result.toolCalls.length === 0) {
         const text = result.text.trim();
@@ -260,6 +288,11 @@ export async function runAgent(deps: AgentDeps, turn: AgentTurn): Promise<Reply>
 
     return degrade("step_limit");
   } catch (error) {
+    if (error instanceof OverBudgetError) {
+      deps.log("agent.over_budget", fields);
+      return degrade("over_budget");
+    }
+    if (error instanceof ChainExhaustedError) return degrade("chain_exhausted", error);
     const timedOut = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
     return degrade(timedOut ? "deadline" : "error", error);
   }

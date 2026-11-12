@@ -51,15 +51,15 @@ function calendarLines(now: Date, timezone: string): string[] {
   });
 }
 
+/** Prices as the customer reads them. The prompt and the menu share it, so they can't disagree. */
+export function formatMoney(amount: number, currency: string): string {
+  return new Intl.NumberFormat("es-CO", { style: "currency", currency, maximumFractionDigits: 0 }).format(amount);
+}
+
 /** Changes per tenant, and the date line once a day, so it always follows the static part. */
 export function tenantBlock(tenant: PromptTenant, now: Date): string {
-  const money = new Intl.NumberFormat("es-CO", {
-    style: "currency",
-    currency: tenant.currency,
-    maximumFractionDigits: 0,
-  });
   const services = tenant.services.map(
-    (service) => `- ${service.name}: ${service.duration_minutes} minutos, ${money.format(service.price)}`,
+    (service) => `- ${service.name}: ${service.duration_minutes} minutos, ${formatMoney(service.price, tenant.currency)}`,
   );
   const faq = tenant.faq.map((item) => `P: ${item.question}\nR: ${item.answer}`);
 
