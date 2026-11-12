@@ -1,6 +1,6 @@
 # 004 — Phase 4: Resilience (T19–T22)
 
-**Status:** approved
+**Status:** done
 **Branches:** `feat/t19-t21-retry-breaker` → `feat/t20-fallback-menu` → `feat/t22-chaos`, stacked on `feat/t18-caching` (PR #3 is still open)
 **Phase:** 4 (see `CLAUDE.md` → Workflow)
 
@@ -143,8 +143,42 @@ This doesn't fit one short session. It splits at three stopping points, each lea
 
 ## Manual test steps
 
-Filled in when the work is done.
+1. **The menu in the web chat.**
+   - Set `OPENAI_API_KEY=sk-wrong` in `.env.local`, restart `npm run dev`, accept consent and write anything.
+   - The reply is the numbered menu, labelled "Modelos no disponibles: menú sin modelo".
+   - Reply `1`, `2` or `3` to get services, hours or the FAQ with no model; `4` hands the chat to a person.
+   - Put the real key back and restart.
+2. **The breaker.** In step 1, send three messages. The fourth arrives faster and makes no model call (`agent.degraded` with `chain_exhausted` and `chain.skipped` in the `npm run dev` log).
+3. **The chaos run.** `npm run chaos` (about $0.02, real API), then `npm run readme`, and compare the README block with the new run file.
 
 ## Results
 
-Filled in after the work.
+**Numbers (12 Nov 2026, real OpenAI API, `evals/runs/2026-11-12-chaos.json`).**
+- **Chaos test passed all 5 checks.** Availability under failure was 100% in each scenario: A (revoked key, 5 turns), B (primary missing, a full booking conversation) and C (recovery, 2 turns).
+- **A:**
+  - After the key was revoked, each turn made 2 failed calls (primary and fallback, both 401, no retries), then answered with the menu.
+  - After the third such turn both breakers were open. The next turns made 0 model calls: the menu choice "2" and a new question.
+- **C:** after the 30 s cool-down, the probe on `gpt-6-luna` succeeded and both turns were answered by it.
+- **B:**
+  - The missing model returned 404 three times, then its breaker opened.
+  - `gpt-6.1-sol` served all 7 calls of the booking conversation: the question, then book, reschedule and cancel.
+  - The conversation cost **$0.0164** on the fallback, against $0.00066 on the primary with caching (12 Nov A/B), so the fallback costs about 25×.
+- **Total cost of the run:** $0.0172.
+- **Tests:** 316 unit tests and 10 Playwright tests pass; typecheck, lint and build pass.
+
+**Open decision 2, closed by these numbers.**
+- Keep `gpt-6.1-sol` as step 2.
+- It rescued the model-specific failure (B) end to end.
+- It could not help with the revoked key (A), because it shares the key and the provider. The menu carried that case at 100%.
+- Its 25× cost is paid only while the primary is failing, so normal traffic costs nothing extra.
+
+**What surprised me.**
+- **Turns take 3.8 to 7.7 s, even with no model call.** The consent and menu turns made none and still took 3.2 to 4.3 s. That's the sequential Supabase round trips from Medellín to the lab project, not the model: model calls themselves median 1.4 to 2 s.
+  - A WhatsApp turn has 12 s for the agent inside Twilio's 15. A turn with several model calls plus that overhead is tight.
+  - Batching the per-turn queries (customer, conversation, status, last reply, history, tenant) is the obvious fix. It is not done here, because it isn't a Phase 4 task.
+- **A plain `Error` isn't a provider failure.** A bug therefore never fails over to the fallback or counts against a breaker; it goes straight to the menu. The unit tests pin this down.
+
+**What changed from the plan.**
+- `recordCall` gained `priceModel`, so the chaos run's fake model id is billed under a real price row.
+- The chaos run uses an isolated in-memory breaker, so it can't trip the shared one, even once Upstash exists.
+- Choice 4 of the menu records `menu → handoff` in the trace.
