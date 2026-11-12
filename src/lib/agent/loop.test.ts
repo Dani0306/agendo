@@ -1,13 +1,16 @@
+import { APICallError } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Schedule } from "@/lib/booking/availability";
 import type { ModelCallRow } from "@/lib/calls/record-call";
-import { PRIMARY_MODEL } from "@/lib/models";
+import { FALLBACK_MODEL, PRIMARY_MODEL } from "@/lib/models";
+import { type Breaker, circuitBreaker, memoryBreakerStore } from "@/lib/resilience/breaker";
+import { MENU_TEXT } from "@/lib/resilience/menu";
 import { fakeStore } from "@/lib/tools/fake-store";
 import { type AgentDeps, type AgentTurn, MAX_MODEL_CALLS, runAgent } from "./loop";
 import type { Budget, Reservation } from "@/lib/guard/budget";
 import type { ResponseCache } from "@/lib/guard/response-cache";
-import { OVER_BUDGET_TEXT, PERSON_SOON_TEXT } from "./reply";
+import { PERSON_SOON_TEXT } from "./reply";
 
 const NOW = new Date("2026-11-09T12:00:00Z");
 const TUESDAY = "2026-11-10";
@@ -81,10 +84,26 @@ const budget: Budget = {
 
 const turn: AgentTurn = { tenantId: "t1", conversationId: "c1", customerId: "ana", messageId: 9, text: "hola", deadlineMs: 5000 };
 
-function deps(model: AgentDeps["model"], history: { role: "customer" | "assistant"; content: string }[] = []): AgentDeps {
+type Model = AgentDeps["chain"][number]["model"];
+
+let breaker: Breaker;
+let sleeps: number[];
+
+/** One model unless a fallback is given. Retries wait for nothing, and the breaker is in memory. */
+function deps(model: Model, history: { role: "customer" | "assistant"; content: string }[] = [], fallback?: Model): AgentDeps {
   return {
-    model,
-    modelId: PRIMARY_MODEL,
+    chain: [{ id: PRIMARY_MODEL, model }, ...(fallback ? [{ id: FALLBACK_MODEL, model: fallback }] : [])],
+    resilience: {
+      breaker,
+      retry: {
+        now: () => NOW.getTime(),
+        sleep: async (ms) => {
+          sleeps.push(ms);
+        },
+        random: () => 0.5,
+      },
+      log,
+    },
     bookings: fake.store,
     data: {
       promptTenant: async () => ({
@@ -117,6 +136,91 @@ beforeEach(() => {
   fake = fakeStore(schedule, services);
   ledger = { reserved: [], settled: [], refunded: [], allow: 100 };
   stored = new Map();
+  breaker = circuitBreaker(memoryBreakerStore(() => NOW.getTime()), { now: () => NOW.getTime(), onError: vi.fn() });
+  sleeps = [];
+});
+
+function failing(statusCode: number) {
+  return new MockLanguageModelV4({
+    modelId: PRIMARY_MODEL,
+    doGenerate: async () => {
+      throw new APICallError({ message: `HTTP ${statusCode}`, url: "https://api.test", requestBodyValues: {}, statusCode });
+    },
+  });
+}
+
+describe("fallback chain", () => {
+  it("retries a 503 with jittered waits, then serves from the fallback", async () => {
+    const primary = failing(503);
+    const fallback = scripted([{ text: "Respuesta del respaldo." }]);
+    const reply = await runAgent(deps(primary, [], fallback), turn);
+
+    expect(primary.doGenerateCalls).toHaveLength(3);
+    expect(sleeps).toEqual([125, 250]);
+    expect(reply).toMatchObject({ text: "Respuesta del respaldo.", trace: { model: FALLBACK_MODEL } });
+    expect(rows.map((row) => [row.model, row.chain_step, row.outcome])).toEqual([
+      [PRIMARY_MODEL, 0, "error"],
+      [PRIMARY_MODEL, 0, "error"],
+      [PRIMARY_MODEL, 0, "error"],
+      [FALLBACK_MODEL, 1, "ok"],
+    ]);
+    // Three failed reservations refunded, one settled.
+    expect(ledger.refunded).toHaveLength(3);
+    expect(ledger.settled).toHaveLength(1);
+  });
+
+  it("doesn't retry a revoked key, and moves straight to the fallback", async () => {
+    const primary = failing(401);
+    const fallback = scripted([{ text: "ok" }]);
+    await runAgent(deps(primary, [], fallback), turn);
+
+    expect(primary.doGenerateCalls).toHaveLength(1);
+    expect(sleeps).toEqual([]);
+  });
+
+  it("shows the menu when every model fails, and names no model", async () => {
+    const reply = await runAgent(deps(failing(401), [], failing(401)), turn);
+
+    expect(reply).toMatchObject({ text: MENU_TEXT, degraded: "menu", trace: { model: null, tools: [{ name: "menu", status: "shown" }] } });
+    expect(log.mock.calls.some(([event]) => event === "agent.degraded")).toBe(true);
+  });
+
+  it("skips a model whose breaker is open, without calling it", async () => {
+    for (let index = 0; index < 3; index += 1) await breaker.failure(PRIMARY_MODEL);
+    const primary = scripted([{ text: "primario" }]);
+    const fallback = scripted([{ text: "respaldo" }]);
+    const reply = await runAgent(deps(primary, [], fallback), turn);
+
+    expect(primary.doGenerateCalls).toHaveLength(0);
+    expect(reply.text).toBe("respaldo");
+  });
+
+  it("opens the breaker after repeated failures, so the next turn doesn't call the dead model", async () => {
+    const primary = failing(401);
+    const fallback = failing(401);
+    for (let index = 0; index < 3; index += 1) await runAgent(deps(primary, [], fallback), turn);
+    const callsBefore = primary.doGenerateCalls.length;
+
+    const reply = await runAgent(deps(primary, [], fallback), turn);
+    expect(primary.doGenerateCalls.length).toBe(callsBefore);
+    expect(reply.degraded).toBe("menu");
+  });
+
+  it("falls back to a person only when the tenant's data can't be loaded", async () => {
+    const reply = await runAgent(
+      {
+        ...deps(scripted([{ text: "ok" }])),
+        data: {
+          promptTenant: async () => {
+            throw new Error("database down");
+          },
+          history: async () => [],
+        },
+      },
+      turn,
+    );
+    expect(reply).toMatchObject({ text: PERSON_SOON_TEXT, degraded: "person_soon" });
+  });
 });
 
 describe("response cache", () => {
@@ -186,7 +290,7 @@ describe("budget", () => {
 
     expect(model.doGenerateCalls).toHaveLength(0);
     expect(rows).toHaveLength(0);
-    expect(reply).toMatchObject({ text: OVER_BUDGET_TEXT, degraded: "over_budget" });
+    expect(reply).toMatchObject({ text: MENU_TEXT, degraded: "over_budget" });
   });
 
   it("stops mid-turn when the budget runs out between calls", async () => {
@@ -303,8 +407,8 @@ describe("runAgent", () => {
     const reply = await runAgent(deps(model), turn);
 
     expect(model.doGenerateCalls).toHaveLength(MAX_MODEL_CALLS);
-    expect(reply).toMatchObject({ text: PERSON_SOON_TEXT, degraded: "person_soon" });
-    expect(log.mock.calls[0]).toMatchObject(["agent.degraded", { reason: "step_limit" }]);
+    expect(reply).toMatchObject({ text: MENU_TEXT, degraded: "menu" });
+    expect(log.mock.calls.at(-1)).toMatchObject(["agent.degraded", { reason: "step_limit" }]);
   });
 
   it("stops at the deadline, logging a timeout row", async () => {
@@ -317,9 +421,9 @@ describe("runAgent", () => {
     });
     const reply = await runAgent(deps(model), { ...turn, deadlineMs: 20 });
 
-    expect(reply).toMatchObject({ text: PERSON_SOON_TEXT, degraded: "person_soon" });
+    expect(reply).toMatchObject({ text: MENU_TEXT, degraded: "menu" });
     expect(rows[0]).toMatchObject({ outcome: "timeout" });
-    expect(log.mock.calls[0]).toMatchObject(["agent.degraded", { reason: "deadline" }]);
+    expect(log.mock.calls.at(-1)).toMatchObject(["agent.degraded", { reason: "deadline" }]);
   });
 
   it("degrades on a provider error, keeping the phone out of the log", async () => {
@@ -331,7 +435,7 @@ describe("runAgent", () => {
     });
     const reply = await runAgent(deps(model), turn);
 
-    expect(reply.degraded).toBe("person_soon");
+    expect(reply.degraded).toBe("menu");
     expect(rows[0]).toMatchObject({ outcome: "error" });
     expect(JSON.stringify(log.mock.calls)).not.toContain("573000000001");
     expect(JSON.stringify(rows)).not.toContain("573000000001");
@@ -342,7 +446,7 @@ describe("runAgent", () => {
       throw new Error("database down");
     };
     const reply = await runAgent(deps(scripted([{ tool: "my_bookings", input: {} }])), turn);
-    expect(reply.degraded).toBe("person_soon");
+    expect(reply.degraded).toBe("menu");
   });
 
   it("wraps customer text as data and sends it after the history", async () => {

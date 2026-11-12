@@ -152,6 +152,20 @@ export function conversationStore(client: Db): ConversationStore {
 
     markHandoff: (tenantId, conversationId) => markConversationHandoff(client, tenantId, conversationId),
 
+    async lastReplyTools(tenantId, conversationId) {
+      const rows = unwrap(
+        await client
+          .from("messages")
+          .select("tool_calls")
+          .eq("tenant_id", tenantId)
+          .eq("conversation_id", conversationId)
+          .eq("role", "assistant")
+          .order("id", { ascending: false })
+          .limit(1),
+      ) as { tool_calls: { name: string; status: string }[] | null }[];
+      return rows[0]?.tool_calls ?? [];
+    },
+
     async release(tenantId, conversationId) {
       unwrap(
         await client

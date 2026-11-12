@@ -40,6 +40,8 @@ export type CallContext = {
   conversationId: string | null;
   purpose: string;
   model: string;
+  /** The price row to bill under, if it differs from `model`. */
+  priceModel?: string;
   /** Position in the fallback chain: 0 is the primary model. */
   chainStep?: number;
 };
@@ -73,7 +75,8 @@ export async function recordCall<T extends { usage: SdkUsage }>(
 ): Promise<T> {
   const nowMs = deps.nowMs ?? Date.now;
   // Checked first, so a missing price fails before money is spent.
-  callCostUsd(context.model, { inputTokens: 0, cacheWriteTokens: 0, cacheReadTokens: 0, outputTokens: 0 });
+  const priceModel = context.priceModel ?? context.model;
+  callCostUsd(priceModel, { inputTokens: 0, cacheWriteTokens: 0, cacheReadTokens: 0, outputTokens: 0 });
 
   const row = {
     tenant_id: context.tenantId,
@@ -99,7 +102,7 @@ export async function recordCall<T extends { usage: SdkUsage }>(
       cache_write_tokens: tokens.cacheWriteTokens,
       cache_read_tokens: tokens.cacheReadTokens,
       output_tokens: tokens.outputTokens,
-      cost_usd: callCostUsd(context.model, tokens),
+      cost_usd: callCostUsd(priceModel, tokens),
       latency_ms: Math.max(0, Math.round(nowMs() - startedAt)),
       outcome: "ok",
       error: null,
