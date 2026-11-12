@@ -1,6 +1,6 @@
 // Prices copied from the pricing page, never estimated. Update the table and the
 // date together, and only from the page itself.
-import { FALLBACK_MODEL_CANDIDATE, PRIMARY_MODEL } from "@/lib/models";
+import { FALLBACK_MODEL, PRIMARY_MODEL } from "@/lib/models";
 
 export const PRICING_SOURCE = "https://developers.openai.com/api/docs/pricing";
 export const PRICING_READ_ON = "2026-11-08";
@@ -22,7 +22,7 @@ export const PRICES: Record<string, ModelPrice> = {
       rates: { input: 0.2, cacheWrite: 0.25, cacheRead: 0.02, output: 0.75 },
     },
   },
-  [FALLBACK_MODEL_CANDIDATE]: {
+  [FALLBACK_MODEL]: {
     rates: { input: 2, cacheWrite: 2.5, cacheRead: 0.1, output: 10 },
     longPrompt: {
       overPromptTokens: 272_000,

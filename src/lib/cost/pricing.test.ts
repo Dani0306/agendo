@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FALLBACK_MODEL_CANDIDATE, PRIMARY_MODEL } from "@/lib/models";
+import { FALLBACK_MODEL, PRIMARY_MODEL } from "@/lib/models";
 import { callCostUsd, PRICES, PRICING_READ_ON, UnknownModelPriceError } from "./pricing";
 
 const none = { inputTokens: 0, cacheWriteTokens: 0, cacheReadTokens: 0, outputTokens: 0 };
@@ -27,8 +27,8 @@ describe("callCostUsd", () => {
   });
 
   it("prices the fallback candidate, including its long-prompt tier", () => {
-    expect(callCostUsd(FALLBACK_MODEL_CANDIDATE, { ...none, inputTokens: 100_000 })).toBe(0.2);
-    expect(callCostUsd(FALLBACK_MODEL_CANDIDATE, { ...none, inputTokens: 300_000 })).toBe(1.2);
+    expect(callCostUsd(FALLBACK_MODEL, { ...none, inputTokens: 100_000 })).toBe(0.2);
+    expect(callCostUsd(FALLBACK_MODEL, { ...none, inputTokens: 300_000 })).toBe(1.2);
   });
 
   it("throws on a model with no price", () => {
@@ -36,7 +36,7 @@ describe("callCostUsd", () => {
   });
 
   it("has a price for every model the app can call, and a read date", () => {
-    expect(Object.keys(PRICES).sort()).toEqual([PRIMARY_MODEL, FALLBACK_MODEL_CANDIDATE].sort());
+    expect(Object.keys(PRICES).sort()).toEqual([PRIMARY_MODEL, FALLBACK_MODEL].sort());
     expect(PRICING_READ_ON).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });
