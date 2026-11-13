@@ -1,0 +1,32 @@
+{
+  "id": "reschedule-clean",
+  "title": "Moves an existing booking",
+  "tags": [
+    "reschedule",
+    "smoke"
+  ],
+  "clock": "2026-11-16T09:00:00-05:00",
+  "persona": "Abogado de 38 años, tiene una reunión que se cruza.",
+  "goal": "Mover tu valoración inicial del miércoles 18 a las 10 a. m. al jueves 19 a las 2 p. m. Confirma si te preguntan.",
+  "opening": "Hola, necesito cambiar mi cita del miércoles 18 a las 10 para el jueves 19 a las 2 de la tarde.",
+  "max_turns": 8,
+  "setup": {
+    "bookings": [
+      {
+        "service": "Valoración inicial",
+        "professional": "Laura",
+        "date": "2026-11-18",
+        "time": "10:00",
+        "mine": true
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "rescheduled",
+    "booking": {
+      "service": "Valoración inicial",
+      "date": "2026-11-19",
+      "time": "14:00"
+    }
+  }
+}

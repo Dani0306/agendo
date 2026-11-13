@@ -1,0 +1,47 @@
+{
+  "id": "book-slot-taken",
+  "title": "Asks for a slot that every therapist already has",
+  "tags": [
+    "booking",
+    "smoke",
+    "edge"
+  ],
+  "clock": "2026-11-16T09:00:00-05:00",
+  "persona": "Profesora de 35 años, práctica.",
+  "goal": "Quieres una valoración inicial el miércoles 18 a las 10 a. m. Si ese horario no está, acepta la primera alternativa que te ofrezcan ese mismo día.",
+  "opening": "Hola, ¿me agendan una valoración inicial el miércoles 18 a las 10 a. m.?",
+  "max_turns": 8,
+  "setup": {
+    "bookings": [
+      {
+        "service": "Valoración inicial",
+        "professional": "Laura",
+        "date": "2026-11-18",
+        "time": "10:00"
+      },
+      {
+        "service": "Valoración inicial",
+        "professional": "Andrés",
+        "date": "2026-11-18",
+        "time": "10:00"
+      },
+      {
+        "service": "Valoración inicial",
+        "professional": "Camila",
+        "date": "2026-11-18",
+        "time": "10:00"
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "booked",
+    "booking": {
+      "service": "Valoración inicial",
+      "date": "2026-11-18"
+    },
+    "avoid": {
+      "date": "2026-11-18",
+      "time": "10:00"
+    }
+  }
+}

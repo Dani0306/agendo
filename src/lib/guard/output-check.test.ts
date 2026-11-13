@@ -44,6 +44,22 @@ describe("times", () => {
     expect(violations("Hay cupo a las 3:00.", { outcomes: [{ times: [{ time: "15:00" }] }] })).toEqual([]);
   });
 
+  it("allows repeating a time the customer wrote, however loosely", () => {
+    expect(violations("A las 10:00 ya no hay cupo.", { customerTexts: ["¿me agendan el miércoles a las 10:00?"] })).toEqual([]);
+    expect(violations("A las 10:00 a. m. ya no hay cupo.", { customerTexts: ["¿el miércoles a las 10 a. m.?"] })).toEqual([]);
+    expect(violations("Las 3:00 p. m. están ocupadas.", { customerTexts: ["el martes a las 3 de la tarde"] })).toEqual([]);
+    expect(violations("A las 9:00 no puedo.", { customerTexts: ["mañana 9am"] })).toEqual([]);
+  });
+
+  it("doesn't read a count as a time", () => {
+    expect(violations("Tengo libre a las 2:00 p. m.", { customerTexts: ["tengo 2 citas"] })).toContain("time");
+  });
+
+  it("names the offending token without quoting the reply", () => {
+    const result = checkReply("Tengo libre a las 9:45 a. m. por $12.000", context());
+    expect(result).toMatchObject({ ok: false, evidence: ["price 12000", "time 09:45"] });
+  });
+
   it("flags a time no tool returned", () => {
     expect(violations("Tengo libre a las 9:45 a. m.", { outcomes: [{ times: [{ time: "10:00" }] }] })).toContain("time");
     expect(violations("Abrimos los domingos a las 9:15.")).toContain("time");

@@ -13,9 +13,12 @@ export type CheckContext = {
   outcomes: unknown[];
   /** Names of the tools that ran this turn. */
   toolsRan: string[];
+  /** What the customer wrote. Repeating their own time back ("a las 10 ya no hay") isn't inventing one. */
+  customerTexts?: string[];
 };
 
-export type CheckResult = { ok: true } | { ok: false; violations: Violation[] };
+/** `evidence` is the offending token (an amount, a time, a phrase kind), never the whole reply. */
+export type CheckResult = { ok: true } | { ok: false; violations: Violation[]; evidence: string[] };
 
 function normalize(text: string): string {
   return text
@@ -65,13 +68,38 @@ function clockTimes(text: string): string[][] {
   return readings;
 }
 
+/**
+ * Customers write times loosely: "a las 10", "10 a. m.", "3 de la tarde", "10am". Read
+ * them generously, since they only widen what the agent may repeat back.
+ */
+const LOOSE_CLOCK =
+  /\b(?:a\s+las\s+|las\s+)?([01]?\d|2[0-3])(?::([0-5]\d))?\s*(a\.?\s?m\.?|p\.?\s?m\.?|am|pm|de\s+la\s+(?:manana|tarde|noche))?/g;
+
+function customerClockTimes(text: string): string[] {
+  const times: string[] = [];
+  for (const match of normalize(text).matchAll(LOOSE_CLOCK)) {
+    const [whole, rawHour, rawMinute, rawSuffix] = match;
+    const suffix = (rawSuffix ?? "").replace(/[\s.]/g, "");
+    // A bare number counts only after "a las"/"las" or with a suffix; "2 citas" is not a time.
+    if (!rawMinute && !suffix && !/las\s/.test(whole)) continue;
+    const hour = Number(rawHour);
+    const minute = rawMinute ?? "00";
+    const pad = (h: number) => `${String(h).padStart(2, "0")}:${minute}`;
+    const evening = suffix === "pm" || suffix.endsWith("tarde") || suffix.endsWith("noche");
+    const morning = suffix === "am" || suffix.endsWith("manana");
+    if (evening) times.push(pad(hour < 12 ? hour + 12 : hour));
+    else if (morning) times.push(pad(hour === 12 ? 0 : hour));
+    else times.push(...(hour < 12 ? [pad(hour), pad(hour + 12)] : [pad(hour)]));
+  }
+  return times;
+}
+
 function allowedTimes(context: CheckContext): Set<string> {
-  const sources = [
-    ...context.tenant.hours,
-    ...context.tenant.faq.map((item) => item.answer),
-    JSON.stringify(context.outcomes),
-  ];
-  return new Set(sources.flatMap((source) => clockTimes(source).flat()));
+  const sources = [...context.tenant.hours, ...context.tenant.faq.map((item) => item.answer), JSON.stringify(context.outcomes)];
+  return new Set([
+    ...sources.flatMap((source) => clockTimes(source).flat()),
+    ...(context.customerTexts ?? []).flatMap(customerClockTimes),
+  ]);
 }
 
 // ── Phrases ─────────────────────────────────────────────────────────────────────────
@@ -113,13 +141,20 @@ function isNegated(text: string, index: number): boolean {
 
 export function checkReply(text: string, context: CheckContext): CheckResult {
   const violations = new Set<Violation>();
+  const evidence: string[] = [];
   const plain = normalize(text);
 
   const prices = new Set(context.tenant.services.map((service) => Math.round(service.price)));
-  if (amounts(plain).some((amount) => !prices.has(amount))) violations.add("price");
+  for (const amount of amounts(plain).filter((value) => !prices.has(value))) {
+    violations.add("price");
+    evidence.push(`price ${amount}`);
+  }
 
   const allowed = allowedTimes(context);
-  if (clockTimes(text).some((readings) => !readings.some((reading) => allowed.has(reading)))) violations.add("time");
+  for (const readings of clockTimes(text).filter((options) => !options.some((reading) => allowed.has(reading)))) {
+    violations.add("time");
+    evidence.push(`time ${readings.join("|")}`);
+  }
 
   // Describing a booking the customer already has is fine once my_bookings looked it up.
   if (BOOKING_CLAIM.test(plain) && !context.toolsRan.includes("my_bookings")) violations.add("booking_claim");
@@ -131,5 +166,6 @@ export function checkReply(text: string, context: CheckContext): CheckResult {
   if (CLINICAL.some((pattern) => pattern.test(plain))) violations.add("clinical");
   if (PROMPT_FRAGMENTS.some((fragment) => plain.includes(fragment))) violations.add("prompt_leak");
 
-  return violations.size === 0 ? { ok: true } : { ok: false, violations: [...violations] };
+  for (const kind of violations) if (kind !== "price" && kind !== "time") evidence.push(kind);
+  return violations.size === 0 ? { ok: true } : { ok: false, violations: [...violations], evidence };
 }

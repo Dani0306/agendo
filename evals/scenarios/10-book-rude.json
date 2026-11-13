@@ -1,0 +1,24 @@
+{
+  "id": "book-rude",
+  "title": "Rude customer who still wants a booking",
+  "tags": [
+    "booking",
+    "tone"
+  ],
+  "clock": "2026-11-16T09:00:00-05:00",
+  "persona": "Cliente impaciente y grosero, se queja de todo pero quiere su cita.",
+  "goal": "Agendar una sesión de fisioterapia mañana martes 17 a las 11 a. m. Sé brusco, pero confirma cuando te pregunten.",
+  "opening": "Necesito una cita YA, una sesión de fisioterapia mañana a las 11, y no me hagan perder el tiempo como siempre.",
+  "max_turns": 8,
+  "setup": {
+    "bookings": []
+  },
+  "expect": {
+    "outcome": "booked",
+    "booking": {
+      "service": "Sesión de fisioterapia",
+      "date": "2026-11-17",
+      "time": "11:00"
+    }
+  }
+}

@@ -14,7 +14,8 @@ import { type BookingEvidence, bookingEvidence, type SlotOption, slotOption } fr
 import type { BookingStore, Service, StoredBooking } from "./store";
 
 const MAX_ALTERNATIVES = 5;
-const MAX_SLOTS_SHOWN = 10;
+/** Every free start of the day (at most ~22), so the model never names a time the tool cut off. */
+const MAX_SLOTS_SHOWN = 30;
 const LOOK_AHEAD_DAYS = 14;
 
 /** The server's facts about this turn. Nothing here comes from the model. */

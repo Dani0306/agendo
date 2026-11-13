@@ -1,0 +1,24 @@
+{
+  "id": "book-closed-holiday",
+  "title": "Asks for a closed holiday and moves to the day before",
+  "tags": [
+    "booking",
+    "edge"
+  ],
+  "clock": "2026-12-21T09:00:00-05:00",
+  "persona": "Señora de 50 años, quiere dejar todo listo antes de Navidad.",
+  "goal": "Pides una valoración inicial el 24 de diciembre a las 9 a. m. Si te dicen que está cerrado, pide el 23 de diciembre a las 9 a. m. y confirma.",
+  "opening": "Buenos días, ¿tienen cita de valoración inicial el 24 de diciembre a las 9?",
+  "max_turns": 8,
+  "setup": {
+    "bookings": []
+  },
+  "expect": {
+    "outcome": "booked",
+    "booking": {
+      "service": "Valoración inicial",
+      "date": "2026-12-23",
+      "time": "09:00"
+    }
+  }
+}

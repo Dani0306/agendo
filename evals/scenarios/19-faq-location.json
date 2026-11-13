@@ -1,0 +1,21 @@
+{
+  "id": "faq-location",
+  "title": "Asks where the clinic is",
+  "tags": [
+    "faq"
+  ],
+  "clock": "2026-11-16T09:00:00-05:00",
+  "persona": "Persona nueva en la ciudad.",
+  "goal": "Saber la dirección de la clínica. Cuando te la den, agradece y termina.",
+  "opening": "¿Dónde quedan ubicados?",
+  "max_turns": 8,
+  "setup": {
+    "bookings": []
+  },
+  "expect": {
+    "outcome": "answered",
+    "mentions": [
+      "calle ficticia"
+    ]
+  }
+}

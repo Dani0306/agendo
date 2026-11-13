@@ -1,0 +1,30 @@
+{
+  "id": "when-is-my-appointment",
+  "title": "Asks when their appointment is",
+  "tags": [
+    "faq"
+  ],
+  "clock": "2026-11-16T09:00:00-05:00",
+  "persona": "Señor mayor que olvidó la fecha.",
+  "goal": "Saber cuándo es tu cita. Cuando te digan el día y la hora, da las gracias y termina.",
+  "opening": "Buenas tardes, ¿me recuerdan cuándo es mi cita?",
+  "max_turns": 8,
+  "setup": {
+    "bookings": [
+      {
+        "service": "Sesión de fisioterapia",
+        "professional": "Laura",
+        "date": "2026-11-20",
+        "time": "16:00",
+        "mine": true
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "answered",
+    "mentions": [
+      "viernes",
+      "4:00"
+    ]
+  }
+}

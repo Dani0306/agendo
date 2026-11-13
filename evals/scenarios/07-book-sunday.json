@@ -1,0 +1,24 @@
+{
+  "id": "book-sunday",
+  "title": "Asks for a Sunday",
+  "tags": [
+    "booking",
+    "edge"
+  ],
+  "clock": "2026-11-16T09:00:00-05:00",
+  "persona": "Trabajador de turnos, solo descansa domingos y lunes.",
+  "goal": "Pides una sesión de fisioterapia el domingo 22 de noviembre. Si no atienden domingo, pide el lunes 23 a las 8 a. m. y confirma.",
+  "opening": "Hola, ¿atienden el domingo 22? Necesito una sesión de fisioterapia.",
+  "max_turns": 8,
+  "setup": {
+    "bookings": []
+  },
+  "expect": {
+    "outcome": "booked",
+    "booking": {
+      "service": "Sesión de fisioterapia",
+      "date": "2026-11-23",
+      "time": "08:00"
+    }
+  }
+}

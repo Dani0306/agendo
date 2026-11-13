@@ -12,7 +12,7 @@ export default defineConfig({
     },
   },
   test: {
-    include: ["src/**/*.test.ts", "scripts/**/*.test.ts", "supabase/functions/**/*.test.ts"],
+    include: ["src/**/*.test.ts", "scripts/**/*.test.ts", "supabase/functions/**/*.test.ts", "evals/**/*.test.ts"],
     exclude: ["node_modules/**", ".next/**"],
   },
 });

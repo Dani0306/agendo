@@ -258,9 +258,14 @@ export async function runAgent(deps: AgentDeps, turn: AgentTurn): Promise<Reply>
 
         // Output rules in code: the text must agree with the tenant's data and this turn's
         // tool results. A failure is never sent and never cached; the menu answers instead.
-        const check = checkReply(text, { tenant, outcomes, toolsRan: trace.tools.map((item) => item.name) });
+        const check = checkReply(text, {
+          tenant,
+          outcomes,
+          toolsRan: trace.tools.map((item) => item.name),
+          customerTexts: [...history.filter((item) => item.role === "customer").map((item) => item.content), turn.text],
+        });
         if (!check.ok) {
-          deps.log("output_check.failed", { ...fields, model: trace.model, violations: check.violations });
+          deps.log("output_check.failed", { ...fields, model: trace.model, violations: check.violations, evidence: check.evidence });
           return {
             ...menuReply("menu"),
             trace: {

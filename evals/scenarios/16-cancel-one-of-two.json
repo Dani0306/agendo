@@ -1,0 +1,39 @@
+{
+  "id": "cancel-one-of-two",
+  "title": "Cancels one of two bookings",
+  "tags": [
+    "cancel",
+    "edge"
+  ],
+  "clock": "2026-11-16T09:00:00-05:00",
+  "persona": "Paciente con dos citas esta semana.",
+  "goal": "Cancelar solo la cita del jueves 19 a las 9 a. m. y conservar la del martes 17. Si te preguntan cuál, di la del jueves.",
+  "opening": "Hola, necesito cancelar una de mis citas.",
+  "max_turns": 8,
+  "setup": {
+    "bookings": [
+      {
+        "service": "Sesión de fisioterapia",
+        "professional": "Andrés",
+        "date": "2026-11-17",
+        "time": "09:00",
+        "mine": true
+      },
+      {
+        "service": "Sesión de fisioterapia",
+        "professional": "Andrés",
+        "date": "2026-11-19",
+        "time": "09:00",
+        "mine": true
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "cancelled",
+    "booking": {
+      "service": "Sesión de fisioterapia",
+      "date": "2026-11-17",
+      "time": "09:00"
+    }
+  }
+}

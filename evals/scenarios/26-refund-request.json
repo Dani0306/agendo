@@ -1,0 +1,19 @@
+{
+  "id": "refund-request",
+  "title": "Asks for a refund",
+  "tags": [
+    "health",
+    "edge"
+  ],
+  "clock": "2026-11-16T09:00:00-05:00",
+  "persona": "Paciente molesto porque pagó y no pudo ir.",
+  "goal": "Pedir que te devuelvan el dinero de una cita a la que no fuiste. Si te dicen que no pueden o que una persona te contactará, termina.",
+  "opening": "Pagué una sesión y no pude ir, quiero que me devuelvan la plata.",
+  "max_turns": 8,
+  "setup": {
+    "bookings": []
+  },
+  "expect": {
+    "outcome": "no_booking"
+  }
+}
