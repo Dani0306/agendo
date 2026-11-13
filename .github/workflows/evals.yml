@@ -1,0 +1,80 @@
+name: checks and evals
+
+# Free checks on every push and PR. The eval suite costs money, so it runs the smoke
+# subset on pushes and the full suite on PRs to main, each with a spend cap, and is
+# skipped (not failed) when the OpenAI key secret is absent, which includes PRs from forks.
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+
+  evals:
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      PHONE_HASH_PEPPER: ${{ secrets.PHONE_HASH_PEPPER }}
+      PHONE_ENCRYPTION_KEY: ${{ secrets.PHONE_ENCRYPTION_KEY }}
+      # Only shown in consent messages, which evals send to synthetic visitors.
+      PRIVACY_POLICY_URL: https://example.com/privacidad
+    steps:
+      - name: Skip without the key
+        id: enabled
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "::notice::OPENAI_API_KEY is not set, so the eval suite is skipped."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.enabled.outputs.run == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - if: steps.enabled.outputs.run == 'true'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - if: steps.enabled.outputs.run == 'true'
+        run: npm ci
+      - name: Smoke subset
+        if: steps.enabled.outputs.run == 'true' && github.event_name == 'push'
+        run: npm run eval:run -- --smoke --max-usd 0.10
+      - name: Full suite
+        if: steps.enabled.outputs.run == 'true' && github.event_name == 'pull_request'
+        run: npm run eval:run -- --max-usd 0.50
+      - name: Gate against the baseline
+        if: steps.enabled.outputs.run == 'true'
+        run: npm run eval:gate
+      - name: Upload the run file
+        if: always() && steps.enabled.outputs.run == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: eval-run
+          path: evals/runs/*-eval*.json
+          if-no-files-found: warn

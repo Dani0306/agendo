@@ -51,6 +51,13 @@ Scenario B: 3 calls to the missing model before its breaker opened, 7 served by 
 Total cost of the run: $0.0172.
 <!-- chaos:end -->
 
+## Evals
+
+Thirty scripted customers (booking, rescheduling, cancelling, questions, emergencies, rude and English-speaking customers, prompt injection) talk to the real agent through whole conversations. A model plays each customer. Bookings are judged from the database rows the run created, never from what the agent said. Double bookings and invented prices must be exactly 0, or the build fails.
+
+<!-- evals:start -->
+<!-- evals:end -->
+
 ## Running it
 
 ```bash
@@ -60,6 +67,8 @@ npm run dev                  # web chat demo at http://localhost:3000
 npm test                     # unit tests, free, no network
 npm run test:e2e             # Playwright against the web chat
 npm run chaos                # the chaos test: real API calls, about $0.02
+npm run eval:run -- --max-usd 0.50   # the eval suite: real API calls
+npm run eval:gate            # compare the newest run with evals/baseline.json
 ```
 
 Health data is sensitive under Colombia's Ley 1581 de 2012. The consent text and privacy terms here are drafts; the author is not a lawyer, and a real clinic must have them reviewed before any patient uses this.
