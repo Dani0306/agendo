@@ -1,6 +1,6 @@
 # 005 — Phase 5: Guardrails and evals (T23–T29)
 
-**Status:** approved
+**Status:** built; the baseline, the retention function and CI secrets wait on the owner
 **Branches:** `feat/t23-t25-guardrails` → `feat/t26-dashboard` → `feat/t27-t28-evals` → `feat/t29-ci`, stacked on `main`
 **Phase:** 5 (see `CLAUDE.md` → Workflow)
 
@@ -250,8 +250,52 @@ About six are tagged smoke. **You review them before the baseline.**
 
 ## Manual test steps
 
-Filled in when the work is done.
+1. **Retention function:**
+   - Paste `supabase/migrations/20261112140000_retention.sql` into the SQL editor and run it.
+   - Then run `supabase/tests/retention.sql`. Expect "Retention passed".
+   - Start the daily job later with `20261112140100_retention_schedule.sql`.
+2. **Dashboard:**
+   - In Supabase → Authentication → URL Configuration, add `http://localhost:3000/auth/callback` to Redirect URLs.
+   - Run `npm run dashboard:invite -- <your email>`.
+   - Open http://localhost:3000/dashboard, which sends you to the login. Request the link and open it in the same browser.
+   - Expect the month's totals, messages per day, upcoming bookings and recent conversations, with no phone numbers.
+3. **Scenarios (T28):** read `evals/scenarios/*.json` and edit anything that doesn't match how a real patient writes or what you'd count as success.
+4. **Baseline:**
+   - On a stable connection, run `npm run eval:run -- --max-usd 0.50` and then `npm run eval:gate`.
+   - If both pass, `evals/baseline.json` gets written from that run and committed alone.
+5. **CI:** add the five secrets listed in T29 under the repo's Settings → Secrets → Actions. Without them, the workflow runs the free checks and skips the evals with a notice.
 
 ## Results
 
-Filled in after the work.
+**Numbers (12–13 Nov 2026).**
+- **Output check:** 33 unit tests, plus 10 injection tests labelled with OWASP items (LLM01, LLM06, LLM07, plus the clinical-advice rule). Every case where a mock model obeys an injection ends in the menu, with no write.
+- **Smoke run** (7 scenarios, `evals/runs/2026-11-13T001131-eval-smoke.json`):
+  - 7 of 7 completed, booking accuracy 100%.
+  - 0 double bookings, 0 invented prices, injection resistance 100%.
+  - 84% of prompt tokens read from cache, $0.0011 total.
+- **First full run** (crashed by a network failure after 27 scenarios):
+  - **All 27 that finished passed**, including every booking, reschedule, cancel and FAQ scenario, the emergency, clinical advice, refund and two injection scenarios.
+  - It wrote no run file, because the crash came before the end. That crash is what exposed the harness bugs fixed below.
+- **Second full run** (13 Nov): the network failed again mid-run (Supabase `fetch failed`, OpenAI `ECONNRESET` in 13 scenarios). It is invalid, it was moved out of `evals/runs`, and **no baseline was written from it**.
+- **Tests:** 385 unit tests and 13 Playwright tests pass; typecheck, lint and build are clean.
+
+**What surprised me.**
+- **The first output-check rule for times was wrong twice**, and the smoke run showed it:
+  - `check_availability` returned only the first 10 times of the day, so a correct "3 p. m." looked invented.
+  - Agents rightly repeat the customer's own requested time ("a las 10 ya no hay").
+
+  Fixed: the tool returns every free time, and customer-written times (parsed loosely) count as allowed. Failures now log the offending token, never the reply.
+- **The gate passed a broken run.** With no baseline it applied only the hard rules, and a run where scenarios had errored still counted as complete. Fixed: any scenario error marks the run incomplete, and the gate fails it.
+- **A network blip left seeded eval clinics behind.** Fixed: the cleanup retries, a scenario's failure never stops the run, and `npm run eval:cleanup` removes leftovers (5 removed so far).
+- **The retention migration was declined three times through the Supabase MCP,** even with the schedule removed. It is probably the tool's own guard on a function that contains `DELETE`. It stays a file for the owner to run.
+
+**What changed from the plan.**
+- Each scenario seeds its own copy of the clinic, so scenarios can't collide and run 4 at a time.
+- The retention schedule is a separate, unapplied migration (owner decision).
+- The CI workflow also runs the free checks (typecheck, lint, unit tests) on every push.
+
+**Still open.**
+- The baseline and the README eval table, after the owner's scenario review and on a stable network.
+- The retention function in the database.
+- The dashboard sign-in, which waits on the redirect URL and the invite.
+- The CI secrets.
