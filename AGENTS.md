@@ -258,6 +258,8 @@ None of these is measured in this repo yet. Items marked VERIFY come from the br
 - **pg_net keeps request headers readable** in `net.http_request_queue` until it sends them (Supabase docs, read 12 Nov 2026). The reminder cron therefore sends a narrow token from Vault (`agendo_reminder_token`), never the secret key.
 - **The Edge Function is Deno, outside `tsconfig`.** Check it with `deno check supabase/functions/send-reminders/index.ts`. Its pure helpers in `reminder.ts` are also run by Vitest.
 - **Reminder claims are final.** `claim_due_reminders` inserts the row as it claims it, so a crash after the claim means a missed reminder, never a repeat. Scripts that call it on the shared database must first check that no real reminder is due (`db:reminder-race` does).
+- **Only provider errors move down the chain** (measured 12 Nov 2026). `APICallError` or a network `TypeError` count against the breaker and move on to the next model. Our own deadline, a spent budget or a bug goes straight to the menu, because another model can't fix those.
+- **A turn costs 3–4 s of database round trips before any model call** (chaos run, 12 Nov 2026, Medellín to the lab project). Keep it in mind against the 12 s WhatsApp deadline; batch the per-turn queries before adding more.
 - **Serverless instances share no memory.** An in-memory rate limiter, breaker or cache is per instance and resets on a cold start, which is why that state lives in Redis.
 - **Vercel Hobby** is non-commercial only (read 8 Nov 2026), and commercial use covers financial gain of anyone involved. A paying client means a plan change before go-live.
 - **Evals and CI cost money.** `npm test` must never call a model, Twilio, Upstash or the network.

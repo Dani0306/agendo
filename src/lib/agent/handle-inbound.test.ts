@@ -70,6 +70,9 @@ class MemoryStore implements ConversationStore {
   async conversationStatus() {
     return this.status;
   }
+  async lastReplyTools() {
+    return this.toolLogs.at(-1) ?? [];
+  }
   async markHandoff() {
     this.status = "handoff";
   }
@@ -100,7 +103,12 @@ class MemoryStore implements ConversationStore {
 }
 
 let store: MemoryStore;
-let deps: InboundDeps & { send: Mock<InboundDeps["send"]>; log: Mock<InboundDeps["log"]>; agent: Mock<InboundDeps["agent"]> };
+let deps: InboundDeps & {
+  send: Mock<InboundDeps["send"]>;
+  log: Mock<InboundDeps["log"]>;
+  agent: Mock<InboundDeps["agent"]>;
+  menu: Mock<InboundDeps["menu"]>;
+};
 let clock: Date;
 let sid: number;
 
@@ -130,6 +138,7 @@ beforeEach(() => {
     send: vi.fn<InboundDeps["send"]>(async () => "SMout"),
     agent: vi.fn<InboundDeps["agent"]>(async () => staticReply(AGENT_TEXT)),
     limiter: allowAll,
+    menu: vi.fn<InboundDeps["menu"]>(async ({ choice }) => staticReply(`menu ${choice}`, "menu")),
     log: vi.fn<InboundDeps["log"]>(),
   };
 });
@@ -268,6 +277,25 @@ describe("agent gate", () => {
     deps.limiter = { check: async () => ({ ok: false, retryAfterMs: 1000 }) };
     await deliver("no puedo respirar");
     expect(store.replies.at(-1)).toBe(EMERGENCY_TEXT);
+  });
+
+  it("answers a number after a menu from the menu, with no agent", async () => {
+    await consented();
+    deps.agent.mockResolvedValueOnce({ text: "menú", degraded: "menu", trace: { model: null, tools: [{ name: "menu", status: "shown" }] } });
+    await deliver("hola");
+    deps.agent.mockClear();
+
+    await deliver(" 2 ");
+    expect(deps.agent).not.toHaveBeenCalled();
+    expect(deps.menu).toHaveBeenCalledWith({ tenantId: "t1", conversationId: "conv1", choice: 2 });
+    expect(store.replies.at(-1)).toBe("menu 2");
+  });
+
+  it("treats a number as a normal message when no menu was shown", async () => {
+    await consented();
+    await deliver("2");
+    expect(deps.menu).not.toHaveBeenCalled();
+    expect(deps.agent).toHaveBeenCalledOnce();
   });
 
   it("keeps the agent silent during a handoff and still acknowledges", async () => {

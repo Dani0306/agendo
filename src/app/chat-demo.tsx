@@ -56,7 +56,8 @@ function degradedLabel(degraded: Reply["degraded"]): string | null {
   if (degraded === "handoff") return "Conversación transferida a una persona";
   if (degraded === "person_soon") return "Modo degradado: el asistente no pudo responder";
   if (degraded === "rate_limited") return "Límite de mensajes alcanzado";
-  if (degraded === "over_budget") return "Presupuesto agotado: sin llamada al modelo";
+  if (degraded === "over_budget") return "Presupuesto agotado: menú sin modelo";
+  if (degraded === "menu") return "Modelos no disponibles: menú sin modelo";
   return null;
 }
 

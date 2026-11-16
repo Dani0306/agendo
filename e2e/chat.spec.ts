@@ -79,6 +79,22 @@ test("shows the over-budget and rate-limited states", async ({ page }) => {
   await expect(page.getByTestId("degraded").last()).toContainText("Límite de mensajes");
 });
 
+test("shows the menu as a designed state when no model can answer", async ({ page }) => {
+  await stubChat(page, [
+    {
+      text: "En este momento no puedo responder mensajes escritos. Responde con un número:\n\n1. Servicios y precios",
+      degraded: "menu",
+      trace: { model: null, tools: [{ name: "menu", status: "shown" }] },
+    },
+  ]);
+  await page.goto("/");
+  await send(page, "hola");
+
+  await expect(page.getByTestId("degraded")).toContainText("menú sin modelo");
+  await expect(page.getByTestId("clinic-bubble")).toContainText("1. Servicios y precios");
+  await expect(page.getByTestId("trace")).toContainText("menu → shown");
+});
+
 test("shows a handoff", async ({ page }) => {
   await stubChat(page, [{ text: "Le pasé tu conversación a una persona.", degraded: "handoff", trace: noModel }]);
   await page.goto("/");

@@ -1,0 +1,254 @@
+{
+  "kind": "chaos",
+  "started_at": "2026-11-12T23:26:39.776Z",
+  "models": {
+    "primary": "gpt-6-luna",
+    "fallback": "gpt-6.1-sol"
+  },
+  "prices_read_on": "2026-11-08",
+  "prices_per_million_usd": {
+    "gpt-6-luna": {
+      "rates": {
+        "input": 0.1,
+        "cacheWrite": 0.125,
+        "cacheRead": 0.01,
+        "output": 0.5
+      },
+      "longPrompt": {
+        "overPromptTokens": 272000,
+        "rates": {
+          "input": 0.2,
+          "cacheWrite": 0.25,
+          "cacheRead": 0.02,
+          "output": 0.75
+        }
+      }
+    },
+    "gpt-6.1-sol": {
+      "rates": {
+        "input": 2,
+        "cacheWrite": 2.5,
+        "cacheRead": 0.1,
+        "output": 10
+      },
+      "longPrompt": {
+        "overPromptTokens": 272000,
+        "rates": {
+          "input": 4,
+          "cacheWrite": 5,
+          "cacheRead": 0.2,
+          "output": 15
+        }
+      }
+    }
+  },
+  "breaker": {
+    "failureThreshold": 3,
+    "windowMs": 60000,
+    "cooldownMs": 30000,
+    "probeMs": 10000
+  },
+  "passed": true,
+  "checks": {
+    "a_every_turn_useful": true,
+    "a_breakers_skip_dead_models": true,
+    "a_menu_answered_without_model": true,
+    "b_booking_completed_on_fallback": true,
+    "c_primary_serves_again": true
+  },
+  "availability_under_failure": {
+    "a_revoked_key": 1,
+    "b_primary_missing": 1,
+    "c_recovery": 1,
+    "all_measured_turns": 1
+  },
+  "scenario_a_and_c": {
+    "turns": [
+      {
+        "said": "hola",
+        "phase": "consent",
+        "degraded": null,
+        "served_by": null,
+        "tools": [],
+        "model_calls": 0,
+        "failed_calls": 0,
+        "latency_ms": 4259,
+        "useful": true
+      },
+      {
+        "said": "ACEPTO",
+        "phase": "consent",
+        "degraded": null,
+        "served_by": null,
+        "tools": [],
+        "model_calls": 0,
+        "failed_calls": 0,
+        "latency_ms": 3198,
+        "useful": true
+      },
+      {
+        "said": "¿Cuánto cuesta la valoración inicial?",
+        "phase": "A: real key",
+        "degraded": null,
+        "served_by": "gpt-6-luna",
+        "tools": [],
+        "model_calls": 1,
+        "failed_calls": 0,
+        "latency_ms": 7188,
+        "useful": true
+      },
+      {
+        "said": "¿Atienden los sábados?",
+        "phase": "A: real key",
+        "degraded": null,
+        "served_by": "gpt-6-luna",
+        "tools": [],
+        "model_calls": 1,
+        "failed_calls": 0,
+        "latency_ms": 6535,
+        "useful": true
+      },
+      {
+        "said": "Quiero agendar una valoración el próximo martes a las 10 de la mañana.",
+        "phase": "A: revoked",
+        "degraded": "menu",
+        "served_by": null,
+        "tools": [
+          "menu:shown"
+        ],
+        "model_calls": 2,
+        "failed_calls": 2,
+        "latency_ms": 5537,
+        "useful": true
+      },
+      {
+        "said": "¿Dónde están ubicados?",
+        "phase": "A: revoked",
+        "degraded": "menu",
+        "served_by": null,
+        "tools": [
+          "menu:shown"
+        ],
+        "model_calls": 2,
+        "failed_calls": 2,
+        "latency_ms": 6206,
+        "useful": true
+      },
+      {
+        "said": "¿Tienen parqueadero?",
+        "phase": "A: revoked",
+        "degraded": "menu",
+        "served_by": null,
+        "tools": [
+          "menu:shown"
+        ],
+        "model_calls": 2,
+        "failed_calls": 2,
+        "latency_ms": 5679,
+        "useful": true
+      },
+      {
+        "said": "2",
+        "phase": "A: revoked",
+        "degraded": "menu",
+        "served_by": null,
+        "tools": [
+          "menu:shown"
+        ],
+        "model_calls": 0,
+        "failed_calls": 0,
+        "latency_ms": 4208,
+        "useful": true
+      },
+      {
+        "said": "¿Y atienden por EPS?",
+        "phase": "A: revoked",
+        "degraded": "menu",
+        "served_by": null,
+        "tools": [
+          "menu:shown"
+        ],
+        "model_calls": 0,
+        "failed_calls": 0,
+        "latency_ms": 3795,
+        "useful": true
+      },
+      {
+        "said": "¿Cuánto cuesta una sesión de fisioterapia?",
+        "phase": "C: restored",
+        "degraded": null,
+        "served_by": "gpt-6-luna",
+        "tools": [],
+        "model_calls": 1,
+        "failed_calls": 0,
+        "latency_ms": 7726,
+        "useful": true
+      },
+      {
+        "said": "Gracias, ¿y dónde están ubicados?",
+        "phase": "C: restored",
+        "degraded": null,
+        "served_by": "gpt-6-luna",
+        "tools": [],
+        "model_calls": 1,
+        "failed_calls": 0,
+        "latency_ms": 6381,
+        "useful": true
+      }
+    ]
+  },
+  "scenario_b": {
+    "ok": true,
+    "error": null,
+    "model_calls": 10,
+    "failed_calls_on_missing_model": 3,
+    "fallback_calls": 7,
+    "fallback_cost_per_conversation_usd": 0.0164444,
+    "transcript": [
+      {
+        "said": "hola",
+        "reply": "Hola, soy el asistente de citas de Fisio Aurora (demo). Para ayudarte por este chat tratamos tu nombre, tu número y los datos de tus citas, con el fin de agendarlas y enviarte recordatorios.\n\nComo pueden revelar información de salud, son datos sensibles y no estás obligado(a) a autorizar su tratamiento. Se procesan con proveedores en Estados Unidos.\n\nPor favor no envíes síntomas, diagnósticos ni documentos.\n\nPolítica: https://example.com/privacy\n\nResponde ACEPTO para continuar o NO para no continuar.",
+        "tools": []
+      },
+      {
+        "said": "ACEPTO",
+        "reply": "Gracias por autorizar. ¿En qué te ayudo? Puedo agendar, cambiar o cancelar citas y responder tus preguntas.",
+        "tools": []
+      },
+      {
+        "said": "¿Cuánto cuesta la valoración inicial y dónde están ubicados?",
+        "reply": "La valoración inicial cuesta $90.000 y dura 60 minutos.\n\nEstamos en la Calle Ficticia 12 # 34-56, consultorio 201, Medellín.",
+        "tools": []
+      },
+      {
+        "said": "Quiero agendar una valoración inicial el próximo martes a las 10 de la mañana.",
+        "reply": "Tu cita quedó confirmada.\n\nServicio: Valoración inicial\nCon: Andrés\nDía: martes 17 de noviembre de 2026\nHora: 10:00 a. m. (zona horaria America/Bogota)",
+        "tools": [
+          "check_availability:available",
+          "create_booking:booked"
+        ]
+      },
+      {
+        "said": "Por favor cambia mi cita para ese mismo día a las 3 de la tarde.",
+        "reply": "Tu cita quedó cambiada.\n\nServicio: Valoración inicial\nCon: Andrés\nDía: martes 17 de noviembre de 2026\nHora: 3:00 p. m. (zona horaria America/Bogota)",
+        "tools": [
+          "my_bookings:ok",
+          "reschedule_booking:rescheduled"
+        ]
+      },
+      {
+        "said": "Mejor cancela esa cita, por favor.",
+        "reply": "Tu cita quedó cancelada.\n\nServicio: Valoración inicial\nCon: Andrés\nDía: martes 17 de noviembre de 2026\nHora: 3:00 p. m. (zona horaria America/Bogota)",
+        "tools": [
+          "my_bookings:ok",
+          "cancel_booking:cancelled"
+        ]
+      }
+    ]
+  },
+  "cost_usd": {
+    "a_and_c": 0.00075618,
+    "b": 0.0164444,
+    "total": 0.01720058
+  }
+}

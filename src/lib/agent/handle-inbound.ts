@@ -13,6 +13,7 @@ import {
 } from "./consent";
 import { isPossibleEmergency } from "./emergency";
 import type { RateLimiter } from "@/lib/guard/rate-limit";
+import { type MenuChoice, parseMenuChoice, wasMenuShown } from "@/lib/resilience/menu";
 import { EMERGENCY_TEXT, HANDOFF_ACK_TEXT, RATE_LIMITED_TEXT, type Reply, staticReply } from "./reply";
 
 /** Longer than the agent's deadline. Renewed before each message in a backlog. */
@@ -42,6 +43,8 @@ export type ConversationStore = {
   renew(tenantId: string, conversationId: string, until: Date): Promise<void>;
   release(tenantId: string, conversationId: string): Promise<void>;
   conversationStatus(tenantId: string, conversationId: string): Promise<ConversationStatus>;
+  /** The tools recorded with the last assistant reply, to know whether it was a menu. */
+  lastReplyTools(tenantId: string, conversationId: string): Promise<Reply["trace"]["tools"]>;
   markHandoff(tenantId: string, conversationId: string): Promise<void>;
   nextUnprocessed(tenantId: string, conversationId: string): Promise<QueuedMessage | null>;
   customerOf(tenantId: string, conversationId: string): Promise<Customer>;
@@ -61,6 +64,8 @@ export type InboundDeps = {
   /** Delivers a reply and returns its provider id. The phone is null for a web visitor. */
   send: (phone: string | null, reply: Reply) => Promise<string>;
   agent: (turn: AgentRequest) => Promise<Reply>;
+  /** Answers a menu choice from tenant data, with no model. */
+  menu: (request: { tenantId: string; conversationId: string; choice: MenuChoice }) => Promise<Reply>;
   /** Per customer, checked before anything that could reach a model. */
   limiter: RateLimiter;
   secrets: PiiSecrets;
@@ -140,6 +145,12 @@ async function agentReply(
   if (!allowed.ok) {
     deps.log("inbound.rate_limited", { tenantId: tenant.id, conversationId });
     return staticReply(RATE_LIMITED_TEXT, "rate_limited");
+  }
+
+  // A number right after a menu picks from it, even once the models are back.
+  const choice = parseMenuChoice(text);
+  if (choice !== null && wasMenuShown(await store.lastReplyTools(tenant.id, conversationId))) {
+    return deps.menu({ tenantId: tenant.id, conversationId, choice });
   }
 
   return deps.agent({ tenantId: tenant.id, conversationId, customerId: customer.id, messageId: message.id, text });
