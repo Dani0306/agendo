@@ -45,6 +45,14 @@ export async function nextCustomerMessage(
         providerOptions: { openai: { store: false, reasoningEffort: "low", textVerbosity: "low" } },
       }),
   );
-  const text = result.text.trim();
-  return text.includes(DONE) || text.length === 0 ? DONE : text;
+  return parseCustomerReply(result.text);
+}
+
+/**
+ * "sí, cámbiala [FIN]" still says something: send it, and the customer ends on its next
+ * turn. Only a bare [FIN] (or nothing) ends the conversation now.
+ */
+export function parseCustomerReply(raw: string): string {
+  const text = raw.replaceAll(DONE, "").trim();
+  return text.length === 0 ? DONE : text;
 }
