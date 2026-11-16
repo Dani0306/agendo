@@ -321,4 +321,4 @@ Across all four runs: 0 double bookings, 0 invented prices and 100% injection re
 - **Retention:** the function is not applied in the database (checked 16 Nov).
 - **Dashboard:** the redirect URL in Supabase Auth settings.
 - **Scenarios:** the owner's review (T28), then a new baseline in its own commit.
-- **CI:** a green full eval run on the Phase 5 PR.
+- **CI:** done. The full suite ran green on PR #6 (30/30, gate passed, $0.0079).
