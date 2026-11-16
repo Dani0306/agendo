@@ -161,6 +161,16 @@ describe("summarize and the gate", () => {
     expect(metrics).toMatchObject({ scenarios: 2, task_completion_rate: 1, escalation_correct_rate: 1, double_bookings: 0, invented_prices: 0 });
   });
 
+  it("counts a handoff as false only when the customer wanted a task done", () => {
+    const handoff = [{ role: "agent" as const, text: "x", degraded: "handoff" as const }];
+    const handedOff = [
+      record({ scenario: { ...scenario({ outcome: "booked" }), id: "b" }, transcript: handoff }),
+      record({ scenario: { ...scenario({ outcome: "no_booking" }), id: "n" }, transcript: handoff }),
+      record({ scenario: { ...scenario({ outcome: "any" }), id: "a" }, transcript: handoff }),
+    ];
+    expect(summarize(handedOff, handedOff.map(scoreScenario)).false_escalations).toBe(1);
+  });
+
   it("passes a run equal to its baseline and fails one more than 2 points worse", () => {
     expect(compare({ metrics, complete: true }, metrics).passed).toBe(true);
     const worse = { ...metrics, task_completion_rate: metrics.task_completion_rate - 0.03 };

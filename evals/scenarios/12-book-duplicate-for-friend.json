@@ -7,7 +7,7 @@
   ],
   "clock": "2026-11-16T09:00:00-05:00",
   "persona": "Señora de 45 años que también quiere cita para una amiga.",
-  "goal": "Primero agenda una valoración inicial el miércoles 18 a las 10 a. m. y confírmala. Después pide otra valoración a la misma hora 'para una amiga'. Acepta lo que te digan.",
+  "goal": "Primero agenda una valoración inicial el miércoles 18 a las 10 a. m. y confírmala. Después pide otra valoración a la misma hora 'para una amiga'. Si te dicen que no se puede a esa hora, no agendes otro horario: agradece y despídete.",
   "opening": "Hola, una valoración inicial el miércoles 18 a las 10 am, por favor.",
   "max_turns": 8,
   "setup": {
