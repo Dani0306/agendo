@@ -157,7 +157,12 @@ export function checkReply(text: string, context: CheckContext): CheckResult {
   }
 
   // Describing a booking the customer already has is fine once my_bookings looked it up.
-  if (BOOKING_CLAIM.test(plain) && !context.toolsRan.includes("my_bookings")) violations.add("booking_claim");
+  // The matched phrase comes from a fixed pattern, so logging it can't carry patient data.
+  const claim = BOOKING_CLAIM.exec(plain);
+  if (claim && !context.toolsRan.includes("my_bookings")) {
+    violations.add("booking_claim");
+    evidence.push(`booking_claim "${claim[0]}"`);
+  }
 
   for (const match of plain.matchAll(REFUND_PROMISE)) {
     if (!isNegated(plain, match.index)) violations.add("refund");
@@ -166,6 +171,6 @@ export function checkReply(text: string, context: CheckContext): CheckResult {
   if (CLINICAL.some((pattern) => pattern.test(plain))) violations.add("clinical");
   if (PROMPT_FRAGMENTS.some((fragment) => plain.includes(fragment))) violations.add("prompt_leak");
 
-  for (const kind of violations) if (kind !== "price" && kind !== "time") evidence.push(kind);
+  for (const kind of violations) if (kind !== "price" && kind !== "time" && kind !== "booking_claim") evidence.push(kind);
   return violations.size === 0 ? { ok: true } : { ok: false, violations: [...violations], evidence };
 }

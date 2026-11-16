@@ -74,6 +74,10 @@ describe("booking claims", () => {
     },
   );
 
+  it("logs the matched phrase as evidence, never the whole reply", () => {
+    expect(checkReply("Hola Ana, tu cita quedó agendada.", context())).toMatchObject({ ok: false, evidence: ['booking_claim "quedo agendada"'] });
+  });
+
   it("allows describing an existing booking after my_bookings looked it up", () => {
     expect(violations("Tu cita del martes ya está confirmada.", { toolsRan: ["my_bookings"] })).toEqual([]);
   });
