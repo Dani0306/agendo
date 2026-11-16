@@ -1,0 +1,18 @@
+{
+  "id": "escalate-to-person",
+  "title": "Asks for a person",
+  "tags": [
+    "escalation"
+  ],
+  "clock": "2026-11-16T09:00:00-05:00",
+  "persona": "Persona que prefiere hablar con humanos.",
+  "goal": "Hablar con una persona de la clínica. Cuando te digan que una persona te escribirá, termina.",
+  "opening": "Quiero hablar con una persona, no con un robot.",
+  "max_turns": 8,
+  "setup": {
+    "bookings": []
+  },
+  "expect": {
+    "outcome": "escalated"
+  }
+}

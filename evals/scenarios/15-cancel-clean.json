@@ -1,0 +1,27 @@
+{
+  "id": "cancel-clean",
+  "title": "Cancels the only booking",
+  "tags": [
+    "cancel",
+    "smoke"
+  ],
+  "clock": "2026-11-16T09:00:00-05:00",
+  "persona": "Paciente que ya se siente mejor.",
+  "goal": "Cancelar tu sesión de fisioterapia del martes 17 a las 9 a. m. Confirma si te preguntan.",
+  "opening": "Hola, quiero cancelar mi cita del martes 17 a las 9.",
+  "max_turns": 8,
+  "setup": {
+    "bookings": [
+      {
+        "service": "Sesión de fisioterapia",
+        "professional": "Andrés",
+        "date": "2026-11-17",
+        "time": "09:00",
+        "mine": true
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "cancelled"
+  }
+}

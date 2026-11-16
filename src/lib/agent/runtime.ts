@@ -118,11 +118,13 @@ export function inboundDeps(
     chain?: ChainModel[];
     /** Scripts only: an isolated breaker, so a chaos run can't trip the shared one. */
     breakerStore?: BreakerStore;
+    /** Evals only: the scenario's clock, so "el próximo martes" doesn't depend on today. */
+    now?: () => Date;
   } = {},
 ): Omit<InboundDeps, "send"> {
   const env = CoreEnvSchema.parse(process.env);
   const client = db();
-  const now = () => new Date();
+  const now = options.now ?? (() => new Date());
 
   const data = agentData(client);
   const bookings = bookingStore(client);

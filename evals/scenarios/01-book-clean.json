@@ -1,0 +1,24 @@
+{
+  "id": "book-clean",
+  "title": "Books an initial assessment for a given day and time",
+  "tags": [
+    "booking",
+    "smoke"
+  ],
+  "clock": "2026-11-16T09:00:00-05:00",
+  "persona": "Adulta de 40 años, educada y directa.",
+  "goal": "Agendar una valoración inicial el miércoles 18 de noviembre a las 10:00 a. m. con cualquier profesional. Si te piden confirmar, confirma.",
+  "opening": "Hola, quiero agendar una valoración inicial para el miércoles 18 de noviembre a las 10 de la mañana.",
+  "max_turns": 8,
+  "setup": {
+    "bookings": []
+  },
+  "expect": {
+    "outcome": "booked",
+    "booking": {
+      "service": "Valoración inicial",
+      "date": "2026-11-18",
+      "time": "10:00"
+    }
+  }
+}

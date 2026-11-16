@@ -11,6 +11,7 @@ This is a learning project and a portfolio piece. The audience is a hiring manag
 **Core rule.** The AI converses, the database decides. The model never confirms a booking. The database does, after verifying the slot is free.
 
 **Users.**
+
 - End customers, booking over WhatsApp.
 - Business owners and receptionists: the buyers.
 - Recruiters and interviewers, who must be able to try it through the web chat demo without a phone number.
@@ -131,13 +132,15 @@ Phase 4 exit: **met.** The chaos test passed and its result is in the README (12
 
 **Phase 5: Guardrails and evals.** Exit: double bookings and invented prices both score 0, and the eval suite runs green in CI.
 
-- [ ] T23 Output rules enforced in code
-- [ ] T24 Prompt-injection tests
-- [ ] T25 Consent line, privacy policy, retention job
-- [ ] T26 📝 Owner dashboard
-- [ ] T27 📝 Multi-turn eval harness and scorer
-- [ ] T28 ✋ Write the 30 scenarios
-- [ ] T29 First run, `evals/baseline.json` in its own commit, GitHub Action (ask before adding the secret)
+- [x] T23 Output rules enforced in code
+- [x] T24 Prompt-injection tests
+- [ ] T25 Consent line, privacy policy, retention job (consent and `/privacidad` done; the retention function is a file the owner applies, the daily job a separate file for later)
+- [x] T26 📝 Owner dashboard (built and tested signed out; signing in waits on the owner's redirect URL and invite)
+- [x] T27 📝 Multi-turn eval harness and scorer
+- [ ] T28 ✋ Write the 30 scenarios (30 drafted 12 Nov, 2 fixed 16 Nov after runs showed they contradicted themselves; waiting on the owner's review)
+- [x] T29 First run, `evals/baseline.json` in its own commit, GitHub Action (ask before adding the secret) (baseline committed 16 Nov from a 30/30 run on the drafts; secrets set at the owner's request; full suite green in CI on PR #6)
+
+Phase 5 exit: **met** (16 Nov). Double bookings and invented prices are 0, and the full suite ran green in CI on PR #6 (30/30, gate passed, $0.0079). Still open inside the phase: the retention function (T25) and the owner's scenario review (T28), after which the baseline is re-taken.
 
 **Phase 6: Ship.** Exit: every item in "Definition of done" exists.
 
@@ -159,6 +162,7 @@ Scoring rules (one tested place, run files, spend caps, baseline discipline) are
 **Scenarios.** 30 scripted multi-turn simulated customers. Examples: changes their mind mid-booking; gives an ambiguous date ("next Tuesday"); is rude; asks something not in the FAQ; attempts prompt injection; asks for a slot that is already taken.
 
 **Metrics.**
+
 - Task completion rate
 - Booking accuracy (the created row matches the request and the slot was truly free)
 - Turns to completion
@@ -248,19 +252,19 @@ Read from vendor pages on 8 Nov 2026 (T02).
 
 Read from vendor pages on the dates shown. The dated table in `lib/cost` is the source of truth once it exists. Never fill a row from memory.
 
-| Item | Price or limit | Read on |
-| ---- | -------------- | ------- |
-| `gpt-6-luna`, prompts ≤ 272k tokens, per 1M | input $0.10 · cached input $0.01 · cache write (30 min) $0.125 · output $0.50 | 8 Nov 2026 |
-| `gpt-6-luna`, prompts > 272k tokens, per 1M (won't apply here) | input $0.20 · cached $0.02 · write $0.25 · output $0.75 | 8 Nov 2026 |
-| `gpt-6.1-sol` (fallback candidate, open decision 2), per 1M | input $2.00 · cached $0.10 · write (30 min) $2.50 · output $10.00 (above 272k: $4 / $0.20 / $5 / $15) | 8 Nov 2026 |
-| Twilio WhatsApp Sandbox | VERIFY: the pages read don't state its price | — |
-| WhatsApp in production (paid by the business), Twilio fee | $0.005 per message, inbound or outbound; $0.001 per failed message ("current as of September 2026") | 8 Nov 2026 |
-| WhatsApp in production, Meta fee | calculator shows $0.0034 per utility template outside the window; no Meta charge for utility inside it. VERIFY the Colombia rate card | 8 Nov 2026 |
-| Upstash Redis free tier | 500K commands/month · 250 MB (the page also says 256) · 10 GB bandwidth · 1 database | 8 Nov 2026 |
-| Langfuse Cloud Hobby | 50k units/month · 30 days of data access · 2 users · client-side masking included · no HIPAA | 8 Nov 2026 |
-| Resend free tier | 3,000 emails/month · 100/day · 3 domains | 8 Nov 2026 |
-| Supabase Edge Functions, free | 150 s wall clock · 2 s CPU per request · 100 functions. VERIFY invocation quota and pg_cron limits | 8 Nov 2026 |
-| Vercel Hobby | $0, non-commercial only · 1M invocations · 4 h active CPU · 100 GB transfer per month | 8 Nov 2026 |
+| Item                                                           | Price or limit                                                                                                                        | Read on    |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `gpt-6-luna`, prompts ≤ 272k tokens, per 1M                    | input $0.10 · cached input $0.01 · cache write (30 min) $0.125 · output $0.50                                                         | 8 Nov 2026 |
+| `gpt-6-luna`, prompts > 272k tokens, per 1M (won't apply here) | input $0.20 · cached $0.02 · write $0.25 · output $0.75                                                                               | 8 Nov 2026 |
+| `gpt-6.1-sol` (fallback candidate, open decision 2), per 1M    | input $2.00 · cached $0.10 · write (30 min) $2.50 · output $10.00 (above 272k: $4 / $0.20 / $5 / $15)                                 | 8 Nov 2026 |
+| Twilio WhatsApp Sandbox                                        | VERIFY: the pages read don't state its price                                                                                          | —          |
+| WhatsApp in production (paid by the business), Twilio fee      | $0.005 per message, inbound or outbound; $0.001 per failed message ("current as of September 2026")                                   | 8 Nov 2026 |
+| WhatsApp in production, Meta fee                               | calculator shows $0.0034 per utility template outside the window; no Meta charge for utility inside it. VERIFY the Colombia rate card | 8 Nov 2026 |
+| Upstash Redis free tier                                        | 500K commands/month · 250 MB (the page also says 256) · 10 GB bandwidth · 1 database                                                  | 8 Nov 2026 |
+| Langfuse Cloud Hobby                                           | 50k units/month · 30 days of data access · 2 users · client-side masking included · no HIPAA                                          | 8 Nov 2026 |
+| Resend free tier                                               | 3,000 emails/month · 100/day · 3 domains                                                                                              | 8 Nov 2026 |
+| Supabase Edge Functions, free                                  | 150 s wall clock · 2 s CPU per request · 100 functions. VERIFY invocation quota and pg_cron limits                                    | 8 Nov 2026 |
+| Vercel Hobby                                                   | $0, non-commercial only · 1M invocations · 4 h active CPU · 100 GB transfer per month                                                 | 8 Nov 2026 |
 
 Back-of-envelope figures (cost per conversation, per eval run) go here only after T05, computed from the table, and are replaced by measured values as soon as runs exist.
 
@@ -301,3 +305,5 @@ Keep this current. Append one line per working session: date, what shipped, the 
 - **2026-11-10 (Phase 1 closed on the web chat)** — Owner ran the database check, sent the Appointment Reminders template to their own phone (arrived) and completed consent and a reply on the web chat. Twilio's trial page confirms trial accounts can't send custom message bodies, so free-text WhatsApp replies stay unproven until the account is upgraded. T03–T09 ticked with that caveat. $0 spent. Next: Phase 3 (T15 reminders on the built-in template, T16 rate limits, T17 budgets, T18 caching).
 - **2026-11-12 (Phase 3, prompt 003)** — T15–T18 built on three stacked branches. Reminders: a claim function, a Deno Edge Function deployed with a token check, and a pg_cron job every 10 minutes (pg_cron, pg_net and two Vault secrets added outside `agendo` with approval); 4 overlapping claims over 6 due bookings returned 6 distinct reminders. Budget: atomic reserve, settle and refund; 10 parallel $0.30 reservations against $1.00 let 3 through, and a $0 tenant got the static reply with no model call. Rate limits in Upstash, failing open. Exact-match FAQ cache for first questions only. Prompt-caching A/B: 64.1% cheaper per call, 82.5% of prompt tokens cached, median 2.0 s → 1.4 s, $0.0025 for both arms. 258 unit and 9 Playwright tests. Exit check: over-budget block and cache saving met; the reminder send waits on the owner's Edge Function secrets, and rate limits on Upstash values. Next: owner hand steps, then Phase 4.
 - **2026-11-12 (Phase 4, prompt 004)** — T19–T22 built on three stacked branches, started before Phase 3's exit by owner request. Retries only on 408, 429, 5xx and network errors, with full jitter inside the turn deadline. A circuit breaker per model (3 failures in 60 s, 30 s cool-down, one probe) in Redis, in memory without Upstash. Fallback chain `gpt-6-luna` → `gpt-6.1-sol` → numbered menu from tenant data → "a person will reply soon". Chaos run on the real API passed all 5 checks: 100% availability with the key revoked (breakers then skipped both models: 0 calls), with the primary missing (the full booking ran on the fallback for $0.0164), and on recovery after the probe; $0.0172 total. Open decision 2 closed: keep `gpt-6.1-sol`. Found: turns take 3–4 s of Supabase round trips even with no model call. 316 unit and 10 Playwright tests. Next: owner's Phase 3 hand steps (Edge Function secrets, Upstash), then Phase 5.
+- **2026-11-13 (Phase 5, prompt 005)** — T23–T29 built on four stacked branches, on top of Phase 4 (which reached `main` only through PR #5, opened 12 Nov after #4 merged into its stack base). Every model reply is now checked in code (prices, times, booking claims, refund promises, clinical advice, prompt leaks) before it's sent or cached; 10 OWASP-labelled injection tests. `/privacidad` page (draft, not legal advice); retention function written but not applied (the MCP declined it 3 times). Owner dashboard with magic-link sign-in under RLS, no phones shown. Eval harness with simulated customers, a fresh clinic per scenario, an injected clock, a scorer judged from database rows, and a gate; 30 scenarios drafted for owner review. Smoke 7/7, 0 double bookings, 0 invented prices, $0.0011; the first full run passed all 27 scenarios that finished before a network failure; the second was invalid (network) and was not used as a baseline. 385 unit and 13 Playwright tests. Next: owner reviews the scenarios, applies retention, sets the redirect URL and invite; then the baseline run and CI secrets.
+- **2026-11-16 (Phase 5 baseline)** — Four full eval runs, all complete. The first three each scored 29/30 and led to 4 fixes: 2 self-contradicting scenarios, 1 real agent bug ("el próximo martes" on Monday booked for the following week without asking; the prompt now defines it and relative dates are confirmed before booking) and 2 harness or scorer bugs (false escalations miscounted; a customer message ending in [FIN] dropped). The fourth scored 30/30, with booking accuracy 100%, 0 double bookings, 0 invented prices, injection resistance 100%, 92% of prompt tokens cached and $0.00027 per conversation; it is the committed baseline ($0.0080; about $0.032 for all four). README eval table rendered from it. Owner dashboard invite done; 5 CI secrets set. 390 unit tests. Note: one scenario is 3.3 points, over the 2-point gate tolerance, so a single flaky failure fails CI. CI on PR #6: full suite 30/30, gate passed, $0.0079; Phase 5 exit met. Next: owner applies retention, adds the auth redirect URL and reviews the scenarios; then Phase 6.

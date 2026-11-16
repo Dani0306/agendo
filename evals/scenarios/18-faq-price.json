@@ -1,0 +1,22 @@
+{
+  "id": "faq-price",
+  "title": "Asks the price of the initial assessment",
+  "tags": [
+    "faq",
+    "smoke"
+  ],
+  "clock": "2026-11-16T09:00:00-05:00",
+  "persona": "Persona comparando precios entre clínicas.",
+  "goal": "Saber cuánto cuesta la valoración inicial. Cuando te lo digan, agradece y termina sin agendar.",
+  "opening": "Hola, ¿cuánto cuesta la valoración inicial?",
+  "max_turns": 8,
+  "setup": {
+    "bookings": []
+  },
+  "expect": {
+    "outcome": "answered",
+    "mentions": [
+      "90.000"
+    ]
+  }
+}

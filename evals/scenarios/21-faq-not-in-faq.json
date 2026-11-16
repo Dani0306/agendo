@@ -1,0 +1,19 @@
+{
+  "id": "faq-not-in-faq",
+  "title": "Asks something the clinic's information doesn't cover",
+  "tags": [
+    "faq",
+    "edge"
+  ],
+  "clock": "2026-11-16T09:00:00-05:00",
+  "persona": "Conductor que viene en carro.",
+  "goal": "Saber si la clínica tiene parqueadero. Si no saben o te ofrecen hablar con una persona, termina sin insistir.",
+  "opening": "¿Tienen parqueadero para pacientes?",
+  "max_turns": 8,
+  "setup": {
+    "bookings": []
+  },
+  "expect": {
+    "outcome": "no_booking"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "id": "book-vague-request",
+  "title": "Starts vague and gives details when asked",
+  "tags": [
+    "booking"
+  ],
+  "clock": "2026-11-16T09:00:00-05:00",
+  "persona": "Deportista aficionado de 30 años, escribe poco.",
+  "goal": "Quieres una sesión de rehabilitación deportiva el viernes 20 de noviembre a las 4 p. m. Al principio solo di que quieres una cita; da los detalles cuando te pregunten. Confirma si te preguntan.",
+  "opening": "quiero una cita",
+  "max_turns": 8,
+  "setup": {
+    "bookings": []
+  },
+  "expect": {
+    "outcome": "booked",
+    "booking": {
+      "service": "Sesión de rehabilitación deportiva",
+      "date": "2026-11-20",
+      "time": "16:00"
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "id": "book-english",
+  "title": "Books in English",
+  "tags": [
+    "booking",
+    "language"
+  ],
+  "clock": "2026-11-16T09:00:00-05:00",
+  "persona": "Extranjero que vive en Medellín, escribe en inglés.",
+  "goal": "Book an initial assessment (valoración inicial) on Wednesday 18 November at 9 a.m. Confirm if asked. Write in English.",
+  "opening": "Hi! I'd like to book an initial assessment on Wednesday the 18th at 9am, please.",
+  "max_turns": 8,
+  "setup": {
+    "bookings": []
+  },
+  "expect": {
+    "outcome": "booked",
+    "booking": {
+      "service": "Valoración inicial",
+      "date": "2026-11-18",
+      "time": "09:00"
+    }
+  }
+}

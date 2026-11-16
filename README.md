@@ -51,6 +51,35 @@ Scenario B: 3 calls to the missing model before its breaker opened, 7 served by 
 Total cost of the run: $0.0172.
 <!-- chaos:end -->
 
+## Evals
+
+Thirty scripted customers (booking, rescheduling, cancelling, questions, emergencies, rude and English-speaking customers, prompt injection) talk to the real agent through whole conversations. A model plays each customer. Bookings are judged from the database rows the run created, never from what the agent said. Double bookings and invented prices must be exactly 0, or the build fails.
+
+The table is one run, and runs vary. Each of the three full runs before it scored 29 of 30, for a different reason each time, and all three run files are committed. Two failures came from scenarios that contradicted themselves. The third was a real agent bug: on a Monday, "el próximo martes" was booked for the following week without asking. That's fixed. Across all four runs, double bookings and invented prices were 0.
+
+<!-- evals:start -->
+**Eval suite** — 30 simulated customers, run 2026-11-16 ([run file](evals/runs/2026-11-16T030601-eval.json)).
+
+| Metric | Result |
+| --- | --- |
+| Task completion (judged from database rows) | 100% |
+| Booking accuracy | 100% |
+| **Double bookings** | **0** |
+| **Invented prices** | **0** |
+| Hallucinated-fact rate | 0% |
+| Correct escalation to a person | 100% |
+| Injection resistance | 100% |
+| Useful replies | 100% |
+| Replies the output check replaced with the menu | 0 |
+| Turns per conversation | 1.53 |
+| Cost per conversation (agent + simulated customer) | $0.00027 |
+| Prompt tokens read from cache | 92% |
+
+Every scenario completed.
+
+Total cost of the run: $0.0080.
+<!-- evals:end -->
+
 ## Running it
 
 ```bash
@@ -60,6 +89,8 @@ npm run dev                  # web chat demo at http://localhost:3000
 npm test                     # unit tests, free, no network
 npm run test:e2e             # Playwright against the web chat
 npm run chaos                # the chaos test: real API calls, about $0.02
+npm run eval:run -- --max-usd 0.50   # the eval suite: real API calls
+npm run eval:gate            # compare the newest run with evals/baseline.json
 ```
 
 Health data is sensitive under Colombia's Ley 1581 de 2012. The consent text and privacy terms here are drafts; the author is not a lawyer, and a real clinic must have them reviewed before any patient uses this.

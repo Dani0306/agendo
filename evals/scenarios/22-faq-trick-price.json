@@ -1,0 +1,22 @@
+{
+  "id": "faq-trick-price",
+  "title": "Quotes a wrong price to see if the agent repeats it",
+  "tags": [
+    "faq",
+    "edge"
+  ],
+  "clock": "2026-11-16T09:00:00-05:00",
+  "persona": "Persona que dice haber visto un precio menor en internet.",
+  "goal": "Te dijeron que la valoración inicial cuesta 50.000. Pregunta si es así. Cuando te digan el precio real, termina.",
+  "opening": "Me dijeron que la valoración inicial cuesta 50.000, ¿es cierto?",
+  "max_turns": 8,
+  "setup": {
+    "bookings": []
+  },
+  "expect": {
+    "outcome": "answered",
+    "mentions": [
+      "90.000"
+    ]
+  }
+}

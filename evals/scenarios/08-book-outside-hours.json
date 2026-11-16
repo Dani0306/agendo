@@ -1,0 +1,24 @@
+{
+  "id": "book-outside-hours",
+  "title": "Asks for a time after closing on Saturday",
+  "tags": [
+    "booking",
+    "edge"
+  ],
+  "clock": "2026-11-16T09:00:00-05:00",
+  "persona": "Estudiante universitario, solo puede los sábados.",
+  "goal": "Pides una sesión de fisioterapia el sábado 21 a las 3 p. m. Si no se puede, pide el sábado 21 a las 10 a. m. y confirma.",
+  "opening": "Hola, quiero una sesión de fisioterapia el sábado 21 a las 3 de la tarde.",
+  "max_turns": 8,
+  "setup": {
+    "bookings": []
+  },
+  "expect": {
+    "outcome": "booked",
+    "booking": {
+      "service": "Sesión de fisioterapia",
+      "date": "2026-11-21",
+      "time": "10:00"
+    }
+  }
+}

@@ -1,6 +1,6 @@
 // Regenerates the README blocks that come from run files. README numbers are never typed
-// by hand: this reads the newest evals/runs/*-chaos.json and rewrites the block between
-// <!-- chaos:start --> and <!-- chaos:end -->. Free: it reads files only.
+// by hand: this reads the newest chaos and full eval run files and rewrites the blocks
+// between their <!-- name:start --> and <!-- name:end --> markers. Free: it reads files only.
 import { readdir, readFile, writeFile } from "node:fs/promises";
 
 const README = "README.md";
@@ -67,15 +67,64 @@ function replaceBlock(readme: string, name: string, body: string): string {
   return `${readme.slice(0, from + start.length)}\n${body}\n${readme.slice(to)}`;
 }
 
-async function main() {
-  const files = (await readdir(RUNS)).filter((name) => name.endsWith("-chaos.json")).sort();
-  const newest = files.at(-1);
-  if (!newest) throw new Error("No chaos run in evals/runs. Run `npm run chaos` first.");
+type EvalRun = {
+  started_at: string;
+  complete: boolean;
+  total_cost_usd: number;
+  metrics: Record<string, number | null>;
+  scores: { id: string; completed: boolean }[];
+};
 
-  const run = JSON.parse(await readFile(`${RUNS}/${newest}`, "utf8")) as ChaosRun;
-  const readme = await readFile(README, "utf8");
-  await writeFile(README, replaceBlock(readme, "chaos", chaosBlock(run, `${RUNS}/${newest}`)), "utf8");
-  console.log(`README chaos block written from ${RUNS}/${newest}`);
+const pct = (value: number | null | undefined) => (value === null || value === undefined ? "—" : `${Math.round(value * 1000) / 10}%`);
+
+function evalBlock(run: EvalRun, file: string): string {
+  const m = run.metrics;
+  const failed = run.scores.filter((score) => !score.completed).map((score) => `\`${score.id}\``);
+  return [
+    `**Eval suite** — ${m.scenarios} simulated customers, run ${run.started_at.slice(0, 10)} ([run file](${file}))${run.complete ? "" : ", stopped at its spend cap"}.`,
+    "",
+    "| Metric | Result |",
+    "| --- | --- |",
+    `| Task completion (judged from database rows) | ${pct(m.task_completion_rate)} |`,
+    `| Booking accuracy | ${pct(m.booking_accuracy)} |`,
+    `| **Double bookings** | **${m.double_bookings}** |`,
+    `| **Invented prices** | **${m.invented_prices}** |`,
+    `| Hallucinated-fact rate | ${pct(m.hallucinated_fact_rate)} |`,
+    `| Correct escalation to a person | ${pct(m.escalation_correct_rate)} |`,
+    `| Injection resistance | ${pct(m.injection_resistance_rate)} |`,
+    `| Useful replies | ${pct(m.availability)} |`,
+    `| Replies the output check replaced with the menu | ${m.output_check_caught} |`,
+    `| Turns per conversation | ${m.avg_turns} |`,
+    `| Cost per conversation (agent + simulated customer) | $${Number(m.cost_per_conversation_usd).toFixed(5)} |`,
+    `| Prompt tokens read from cache | ${pct(m.cache_hit_ratio)} |`,
+    "",
+    failed.length === 0 ? "Every scenario completed." : `Not completed: ${failed.join(", ")}.`,
+    "",
+    `Total cost of the run: $${run.total_cost_usd.toFixed(4)}.`,
+  ].join("\n");
+}
+
+async function newest(suffix: string): Promise<string | undefined> {
+  return (await readdir(RUNS)).filter((name) => name.endsWith(suffix)).sort().at(-1);
+}
+
+async function main() {
+  let readme = await readFile(README, "utf8");
+
+  const chaos = await newest("-chaos.json");
+  if (chaos) {
+    readme = replaceBlock(readme, "chaos", chaosBlock(JSON.parse(await readFile(`${RUNS}/${chaos}`, "utf8")) as ChaosRun, `${RUNS}/${chaos}`));
+    console.log(`README chaos block written from ${RUNS}/${chaos}`);
+  }
+
+  // Full runs only: a smoke subset isn't the suite.
+  const evals = await newest("-eval.json");
+  if (evals && readme.includes("<!-- evals:start -->")) {
+    readme = replaceBlock(readme, "evals", evalBlock(JSON.parse(await readFile(`${RUNS}/${evals}`, "utf8")) as EvalRun, `${RUNS}/${evals}`));
+    console.log(`README evals block written from ${RUNS}/${evals}`);
+  }
+
+  await writeFile(README, readme, "utf8");
 }
 
 void main().catch((error: unknown) => {

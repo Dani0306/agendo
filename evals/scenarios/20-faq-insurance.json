@@ -1,0 +1,21 @@
+{
+  "id": "faq-insurance",
+  "title": "Asks about EPS coverage",
+  "tags": [
+    "faq"
+  ],
+  "clock": "2026-11-16T09:00:00-05:00",
+  "persona": "Afiliado a una EPS que quiere usarla.",
+  "goal": "Saber si atienden por EPS o medicina prepagada. Cuando te respondan, termina.",
+  "opening": "Hola, ¿atienden por EPS? Tengo Sura.",
+  "max_turns": 8,
+  "setup": {
+    "bookings": []
+  },
+  "expect": {
+    "outcome": "answered",
+    "mentions": [
+      "particular"
+    ]
+  }
+}

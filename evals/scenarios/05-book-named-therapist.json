@@ -1,0 +1,24 @@
+{
+  "id": "book-named-therapist",
+  "title": "Books with a specific therapist",
+  "tags": [
+    "booking"
+  ],
+  "clock": "2026-11-16T09:00:00-05:00",
+  "persona": "Paciente frecuente, conoce a la fisioterapeuta Camila.",
+  "goal": "Agendar un control de seguimiento con Camila el jueves 19 de noviembre a las 8:00 a. m. Confirma si te preguntan.",
+  "opening": "Hola! Quiero un control de seguimiento con Camila el jueves 19 a las 8 am.",
+  "max_turns": 8,
+  "setup": {
+    "bookings": []
+  },
+  "expect": {
+    "outcome": "booked",
+    "booking": {
+      "service": "Control de seguimiento",
+      "date": "2026-11-19",
+      "time": "08:00",
+      "professional": "Camila"
+    }
+  }
+}

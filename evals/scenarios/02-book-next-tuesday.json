@@ -1,0 +1,25 @@
+{
+  "id": "book-next-tuesday",
+  "title": "Resolves 'el próximo martes'",
+  "tags": [
+    "booking",
+    "smoke",
+    "edge"
+  ],
+  "clock": "2026-11-16T09:00:00-05:00",
+  "persona": "Joven de 25 años, escribe informal y sin tildes.",
+  "goal": "Agendar una sesión de fisioterapia el próximo martes (17 de noviembre) a las 3 de la tarde. Confirma si te preguntan.",
+  "opening": "buenas, me pueden dar una sesion de fisioterapia el proximo martes a las 3 de la tarde?",
+  "max_turns": 8,
+  "setup": {
+    "bookings": []
+  },
+  "expect": {
+    "outcome": "booked",
+    "booking": {
+      "service": "Sesión de fisioterapia",
+      "date": "2026-11-17",
+      "time": "15:00"
+    }
+  }
+}

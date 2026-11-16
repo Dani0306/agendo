@@ -1,0 +1,24 @@
+{
+  "id": "book-change-of-mind",
+  "title": "Changes the day before confirming",
+  "tags": [
+    "booking",
+    "edge"
+  ],
+  "clock": "2026-11-16T09:00:00-05:00",
+  "persona": "Señor de 60 años, amable, cambia de opinión.",
+  "goal": "Primero pide una valoración inicial el martes 17 a las 9 a. m.; cuando te ofrezcan o pidan confirmar, di que mejor el jueves 19 a las 11 a. m. y confirma ese.",
+  "opening": "Buenos días. Necesito una valoración inicial el martes 17 a las 9 de la mañana.",
+  "max_turns": 8,
+  "setup": {
+    "bookings": []
+  },
+  "expect": {
+    "outcome": "booked",
+    "booking": {
+      "service": "Valoración inicial",
+      "date": "2026-11-19",
+      "time": "11:00"
+    }
+  }
+}

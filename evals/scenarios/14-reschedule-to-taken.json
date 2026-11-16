@@ -1,0 +1,53 @@
+{
+  "id": "reschedule-to-taken",
+  "title": "Moves to a slot that is taken, then to an alternative",
+  "tags": [
+    "reschedule",
+    "edge"
+  ],
+  "clock": "2026-11-16T09:00:00-05:00",
+  "persona": "Mamá de dos niños, horario apretado.",
+  "goal": "Mover tu valoración inicial del miércoles 18 a las 10 a. m. al jueves 19 a las 2 p. m. Si no está disponible, acepta la primera alternativa del jueves 19 que te ofrezcan.",
+  "opening": "Buenas, ¿puedo pasar mi cita del miércoles 18 a las 10 para el jueves 19 a las 2 pm?",
+  "max_turns": 8,
+  "setup": {
+    "bookings": [
+      {
+        "service": "Valoración inicial",
+        "professional": "Laura",
+        "date": "2026-11-18",
+        "time": "10:00",
+        "mine": true
+      },
+      {
+        "service": "Valoración inicial",
+        "professional": "Laura",
+        "date": "2026-11-19",
+        "time": "14:00"
+      },
+      {
+        "service": "Valoración inicial",
+        "professional": "Andrés",
+        "date": "2026-11-19",
+        "time": "14:00"
+      },
+      {
+        "service": "Valoración inicial",
+        "professional": "Camila",
+        "date": "2026-11-19",
+        "time": "14:00"
+      }
+    ]
+  },
+  "expect": {
+    "outcome": "rescheduled",
+    "booking": {
+      "service": "Valoración inicial",
+      "date": "2026-11-19"
+    },
+    "avoid": {
+      "date": "2026-11-19",
+      "time": "14:00"
+    }
+  }
+}
