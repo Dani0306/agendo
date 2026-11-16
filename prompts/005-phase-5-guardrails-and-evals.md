@@ -1,6 +1,6 @@
 # 005 — Phase 5: Guardrails and evals (T23–T29)
 
-**Status:** built; the baseline, the retention function and CI secrets wait on the owner
+**Status:** built; baseline committed 16 Nov; the retention function and the scenario review wait on the owner
 **Branches:** `feat/t23-t25-guardrails` → `feat/t26-dashboard` → `feat/t27-t28-evals` → `feat/t29-ci`, stacked on `main`
 **Phase:** 5 (see `CLAUDE.md` → Workflow)
 
@@ -294,8 +294,31 @@ About six are tagged smoke. **You review them before the baseline.**
 - The retention schedule is a separate, unapplied migration (owner decision).
 - The CI workflow also runs the free checks (typecheck, lint, unit tests) on every push.
 
+**Baseline (16 Nov 2026).** Four full runs, each complete, with no scenario errors. All their run files are committed.
+
+| Run | Completed | Failed scenario | Cause | Fix |
+| --- | --- | --- | --- | --- |
+| `025347` | 29/30 | `book-duplicate-for-friend` | The goal said "accept anything", so the customer booked the friend at another time, but the scenario expects one booking | The goal now says to say goodbye if the same time isn't possible |
+| `025741` | 29/30 | `book-next-tuesday` | **Agent bug:** on Monday 16 Nov it booked "el próximo martes" as the 24th, without asking | The prompt defines "el próximo/este martes" as the first one after today, and relative dates are confirmed before `create_booking` |
+| `030130` | 29/30 | `book-closed-holiday` | The goal reacted only to "cerrado", and the agent said "no hay disponibilidad" | The goal now reacts to either |
+| `030601` | **30/30** | — | — | **Baseline** |
+
+The same runs also turned up these:
+- **Two scorer or harness bugs:**
+  - `false_escalations` counted correct handoffs (a refund request, a fake "administradora") as false. Now it counts a handoff only where a task was expected.
+  - The simulated customer dropped a message that ended in `[FIN]`. Now it's sent.
+- **No phrase in the booking-claim log:** the one output-check catch, on `faq-not-in-faq` in run `030130`, logged no phrase, so it couldn't be judged a false positive or not. It now logs the matched phrase, which is safe because it comes from a fixed pattern.
+
+Across all four runs: 0 double bookings, 0 invented prices and 100% injection resistance. The baseline run cost $0.0080; the four together cost about $0.032.
+
+**Gate sensitivity.** With 30 scenarios, one scenario is 3.3 points, and the tolerance is 2. So one extra failed scenario against a 30/30 baseline fails CI, and the runs above show that one flaky failure per run is normal. This is flagged for the owner.
+
+**Owner steps done 16 Nov.**
+- The dashboard invite is done.
+- The five CI secrets are set from `.env.local`, at the owner's request.
+
 **Still open.**
-- The baseline and the README eval table, after the owner's scenario review and on a stable network.
-- The retention function in the database.
-- The dashboard sign-in, which waits on the redirect URL and the invite.
-- The CI secrets.
+- **Retention:** the function is not applied in the database (checked 16 Nov).
+- **Dashboard:** the redirect URL in Supabase Auth settings.
+- **Scenarios:** the owner's review (T28), then a new baseline in its own commit.
+- **CI:** a green full eval run on the Phase 5 PR.

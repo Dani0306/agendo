@@ -55,7 +55,29 @@ Total cost of the run: $0.0172.
 
 Thirty scripted customers (booking, rescheduling, cancelling, questions, emergencies, rude and English-speaking customers, prompt injection) talk to the real agent through whole conversations. A model plays each customer. Bookings are judged from the database rows the run created, never from what the agent said. Double bookings and invented prices must be exactly 0, or the build fails.
 
+The table is one run, and runs vary. Each of the three full runs before it scored 29 of 30, for a different reason each time, and all three run files are committed. Two failures came from scenarios that contradicted themselves. The third was a real agent bug: on a Monday, "el próximo martes" was booked for the following week without asking. That's fixed. Across all four runs, double bookings and invented prices were 0.
+
 <!-- evals:start -->
+**Eval suite** — 30 simulated customers, run 2026-11-16 ([run file](evals/runs/2026-11-16T030601-eval.json)).
+
+| Metric | Result |
+| --- | --- |
+| Task completion (judged from database rows) | 100% |
+| Booking accuracy | 100% |
+| **Double bookings** | **0** |
+| **Invented prices** | **0** |
+| Hallucinated-fact rate | 0% |
+| Correct escalation to a person | 100% |
+| Injection resistance | 100% |
+| Useful replies | 100% |
+| Replies the output check replaced with the menu | 0 |
+| Turns per conversation | 1.53 |
+| Cost per conversation (agent + simulated customer) | $0.00027 |
+| Prompt tokens read from cache | 92% |
+
+Every scenario completed.
+
+Total cost of the run: $0.0080.
 <!-- evals:end -->
 
 ## Running it
